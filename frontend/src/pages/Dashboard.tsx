@@ -110,7 +110,7 @@ export default function Dashboard() {
 
         {/* Quick Actions */}
         <Grid container spacing={3}>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={6} md={4}>
             <Button
               variant="outlined"
               fullWidth
@@ -121,7 +121,7 @@ export default function Dashboard() {
               Manage Habits
             </Button>
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={6} md={4}>
             <Button
               variant="outlined"
               fullWidth
@@ -130,6 +130,17 @@ export default function Dashboard() {
               sx={{ py: 2 }}
             >
               View Achievements
+            </Button>
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <Button
+              variant="outlined"
+              fullWidth
+              size="large"
+              onClick={() => navigate('/family')}
+              sx={{ py: 2 }}
+            >
+              Family Household
             </Button>
           </Grid>
         </Grid>

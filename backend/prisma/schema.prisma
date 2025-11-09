@@ -50,6 +50,8 @@ model User {
   completions      HabitCompletion[]
   achievements     UserAchievement[]
   streakHistory    StreakHistory[]
+  householdMembers HouseholdMember[]
+  ownedHouseholds  Household[]       @relation("HouseholdOwner")
 
   @@map("users")
 }
@@ -225,4 +227,66 @@ model StreakHistory {
   @@unique([userId, date])
   @@index([userId])
   @@index([date])
+}
+
+// ============================================
+// HOUSEHOLD / FAMILY
+// ============================================
+
+enum HouseholdRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Household {
+  id          String   @id @default(uuid())
+  
+  // Household Details
+  name        String
+  description String?
+  avatar      String?
+  inviteCode  String   @unique @default(uuid())
+  
+  // Settings
+  isActive    Boolean  @default(true)
+  maxMembers  Int      @default(10)
+  
+  // Owner
+  ownerId     String
+  owner       User     @relation("HouseholdOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  members     HouseholdMember[]
+  
+  @@map("households")
+  @@index([ownerId])
+  @@index([inviteCode])
+}
+
+model HouseholdMember {
+  id           String        @id @default(uuid())
+  householdId  String
+  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Member Details
+  role         HouseholdRole @default(MEMBER)
+  nickname     String?
+  
+  // Stats
+  contribution Int           @default(0) // Total contribution points
+  
+  // Timestamps
+  joinedAt     DateTime      @default(now())
+  
+  @@map("household_members")
+  @@unique([householdId, userId])
+  @@index([householdId])
+  @@index([userId])
 }

@@ -6,6 +6,7 @@ import Register from '@/pages/Register';
 import Dashboard from '@/pages/Dashboard';
 import Habits from '@/pages/Habits';
 import Achievements from '@/pages/Achievements';
+import Family from '@/pages/Family';
 
 function App() {
   return (
@@ -35,6 +36,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Achievements />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/family"
+            element={
+              <ProtectedRoute>
+                <Family />
               </ProtectedRoute>
             }
           />

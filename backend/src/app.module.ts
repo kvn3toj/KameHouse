@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { HabitsModule } from './modules/habits/habits.module';
 import { AchievementsModule } from './modules/achievements/achievements.module';
+import { HouseholdModule } from './modules/household/household.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AchievementsModule } from './modules/achievements/achievements.module';
     UsersModule,
     HabitsModule,
     AchievementsModule,
+    HouseholdModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
