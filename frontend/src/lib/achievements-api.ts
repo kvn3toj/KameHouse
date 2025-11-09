@@ -1,4 +1,4 @@
-import { apiClient } from './api-client';
+import { api } from './api';
 import type { Achievement } from '@/types/achievement';
 
 export const achievementsApi = {
@@ -6,15 +6,13 @@ export const achievementsApi = {
    * Get all achievements with unlock status
    */
   getAll: async (): Promise<Achievement[]> => {
-    const response = await apiClient.get('/achievements');
-    return response.data;
+    return api.get<Achievement[]>('/achievements');
   },
 
   /**
    * Check and unlock any newly earned achievements
    */
   checkUnlocks: async (): Promise<Achievement[]> => {
-    const response = await apiClient.post('/achievements/check');
-    return response.data;
+    return api.post<Achievement[]>('/achievements/check');
   },
 };
