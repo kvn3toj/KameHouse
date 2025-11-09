@@ -51,7 +51,9 @@ model User {
   achievements     UserAchievement[]
   streakHistory    StreakHistory[]
   householdMembers HouseholdMember[]
-  ownedHouseholds  Household[]       @relation("HouseholdOwner")
+  ownedHouseholds  Household[]          @relation("HouseholdOwner")
+  requestedFavors  FavorTransaction[]   @relation("RequestedFavors")
+  assignedFavors   FavorTransaction[]   @relation("AssignedFavors")
 
   @@map("users")
 }
@@ -261,8 +263,9 @@ model Household {
   updatedAt   DateTime @updatedAt
   
   // Relations
-  members     HouseholdMember[]
-  
+  members      HouseholdMember[]
+  transactions FavorTransaction[]
+
   @@map("households")
   @@index([ownerId])
   @@index([inviteCode])
@@ -289,4 +292,49 @@ model HouseholdMember {
   @@unique([householdId, userId])
   @@index([householdId])
   @@index([userId])
+}
+
+// ============================================
+// LETS (Local Exchange Trade System)
+// ============================================
+
+enum TransactionStatus {
+  PENDING
+  ACCEPTED
+  COMPLETED
+  DECLINED
+  CANCELLED
+}
+
+model FavorTransaction {
+  id             String            @id @default(uuid())
+  householdId    String
+  household      Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  
+  // Who needs the favor
+  requesterId    String
+  requester      User              @relation("RequestedFavors", fields: [requesterId], references: [id], onDelete: Cascade)
+  
+  // Who will do the favor (can be null for open requests)
+  assigneeId     String?
+  assignee       User?             @relation("AssignedFavors", fields: [assigneeId], references: [id], onDelete: Cascade)
+  
+  // Task Details
+  title          String
+  description    String?
+  credits        Int               @default(10) // Favor credits for this task
+  
+  // Status
+  status         TransactionStatus @default(PENDING)
+  
+  // Timestamps
+  createdAt      DateTime          @default(now())
+  acceptedAt     DateTime?
+  completedAt    DateTime?
+  
+  @@map("favor_transactions")
+  @@index([householdId])
+  @@index([requesterId])
+  @@index([assigneeId])
+  @@index([status])
 }

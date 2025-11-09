@@ -8,6 +8,7 @@ import { UsersModule } from './modules/users/users.module';
 import { HabitsModule } from './modules/habits/habits.module';
 import { AchievementsModule } from './modules/achievements/achievements.module';
 import { HouseholdModule } from './modules/household/household.module';
+import { TransactionsModule } from './modules/transactions/transactions.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { HouseholdModule } from './modules/household/household.module';
     HabitsModule,
     AchievementsModule,
     HouseholdModule,
+    TransactionsModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
