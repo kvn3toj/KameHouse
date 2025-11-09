@@ -1,0 +1,228 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+
+  // Profile
+  displayName String?
+  avatar      String?
+  bio         String?
+
+  // Gamification Stats
+  level       Int      @default(1)
+  xp          Int      @default(0)
+  health      Int      @default(50)
+  maxHealth   Int      @default(50)
+  gold        Int      @default(0)
+  gems        Int      @default(0)
+
+  // Attributes (RPG-style)
+  strength     Int @default(0)
+  intelligence Int @default(0)
+  constitution Int @default(0)
+  perception   Int @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastActive DateTime @default(now())
+
+  // Relations
+  habits           Habit[]
+  dailyTasks       DailyTask[]
+  completions      HabitCompletion[]
+  achievements     UserAchievement[]
+  streakHistory    StreakHistory[]
+
+  @@map("users")
+}
+
+// ============================================
+// HABIT TRACKING
+// ============================================
+
+enum HabitType {
+  POSITIVE  // Good habits to build (e.g., exercise, study)
+  NEGATIVE  // Bad habits to break (e.g., smoking, procrastination)
+  DAILY     // Daily tasks/chores
+}
+
+enum HabitFrequency {
+  DAILY
+  WEEKLY
+  CUSTOM
+}
+
+model Habit {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Habit Details
+  title       String
+  description String?
+  icon        String?
+  color       String?
+
+  // Type & Settings
+  type        HabitType        @default(POSITIVE)
+  frequency   HabitFrequency   @default(DAILY)
+  difficulty  Int              @default(1) // 1-5 (affects XP rewards)
+
+  // Rewards
+  xpReward    Int              @default(10)
+  goldReward  Int              @default(5)
+  healthCost  Int              @default(0) // For negative habits
+
+  // Tracking
+  currentStreak Int            @default(0)
+  longestStreak Int            @default(0)
+  totalCompletions Int         @default(0)
+
+  // Schedule
+  isActive    Boolean          @default(true)
+  startDate   DateTime         @default(now())
+  endDate     DateTime?
+
+  // Timestamps
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  // Relations
+  completions HabitCompletion[]
+
+  @@map("habits")
+  @@index([userId])
+}
+
+model HabitCompletion {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habitId     String
+  habit       Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  // Completion Details
+  completedAt DateTime @default(now())
+  date        DateTime @default(now()) @db.Date
+  notes       String?
+
+  // Rewards Earned
+  xpEarned    Int      @default(0)
+  goldEarned  Int      @default(0)
+
+  @@map("habit_completions")
+  @@unique([habitId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+// ============================================
+// DAILY TASKS
+// ============================================
+
+model DailyTask {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Task Details
+  title       String
+  description String?
+
+  // Completion
+  isCompleted Boolean  @default(false)
+  completedAt DateTime?
+  dueDate     DateTime @db.Date
+
+  // Rewards
+  xpReward    Int      @default(5)
+  goldReward  Int      @default(2)
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("daily_tasks")
+  @@index([userId])
+  @@index([dueDate])
+}
+
+// ============================================
+// GAMIFICATION
+// ============================================
+
+model Achievement {
+  id          String   @id @default(uuid())
+
+  // Achievement Details
+  key         String   @unique // e.g., "first_habit", "streak_7", "level_10"
+  name        String
+  description String
+  icon        String?
+
+  // Requirements
+  category    String   // e.g., "habits", "streaks", "levels"
+  requirement Int      // e.g., 7 for streak_7
+
+  // Rewards
+  xpReward    Int      @default(0)
+  goldReward  Int      @default(0)
+  gemsReward  Int      @default(0)
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+
+  // Relations
+  users       UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  // Unlock Details
+  unlockedAt    DateTime    @default(now())
+  progress      Int         @default(0)
+
+  @@map("user_achievements")
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+model StreakHistory {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Streak Details
+  date        DateTime @db.Date
+  streakCount Int
+
+  @@map("streak_history")
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
