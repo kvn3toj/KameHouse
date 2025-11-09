@@ -6,6 +6,7 @@ import { PrismaService } from './prisma.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { HabitsModule } from './modules/habits/habits.module';
+import { AchievementsModule } from './modules/achievements/achievements.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { HabitsModule } from './modules/habits/habits.module';
     AuthModule,
     UsersModule,
     HabitsModule,
+    AchievementsModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

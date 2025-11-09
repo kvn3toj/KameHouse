@@ -3,6 +3,7 @@ import { Box, Button, Container, Typography, Grid, Snackbar, Alert } from '@mui/
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { habitsApi } from '@/lib/habits-api';
+import { achievementsApi } from '@/lib/achievements-api';
 import TodayHabits from '@/components/TodayHabits';
 import StatsCards from '@/components/StatsCards';
 import ProgressBar from '@/components/ProgressBar';
@@ -30,6 +31,17 @@ export default function Dashboard() {
       let message = `+${rewards.xp} XP, +${rewards.gold} Gold`;
       if (rewards.levelUp) {
         message += ` 🎉 Level Up! You're now level ${rewards.newLevel}!`;
+      }
+
+      // Check for newly unlocked achievements
+      try {
+        const newAchievements = await achievementsApi.checkUnlocks();
+        if (newAchievements.length > 0) {
+          const achievementNames = newAchievements.map(a => a.name).join(', ');
+          message += `\n🏆 New Achievement${newAchievements.length > 1 ? 's' : ''}: ${achievementNames}!`;
+        }
+      } catch (error) {
+        console.error('Failed to check achievements:', error);
       }
 
       setSnackbar({ open: true, message, severity: 'success' });
@@ -114,10 +126,10 @@ export default function Dashboard() {
               variant="outlined"
               fullWidth
               size="large"
-              disabled
+              onClick={() => navigate('/achievements')}
               sx={{ py: 2 }}
             >
-              Achievements (Coming Soon)
+              View Achievements
             </Button>
           </Grid>
         </Grid>
