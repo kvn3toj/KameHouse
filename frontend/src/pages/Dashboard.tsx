@@ -21,9 +21,14 @@ export default function Dashboard() {
             <Typography variant="h4" component="h1">
               Welcome to KameHouse
             </Typography>
-            <Button variant="outlined" onClick={handleLogout}>
-              Logout
-            </Button>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Button variant="contained" onClick={() => navigate('/habits')}>
+                My Habits
+              </Button>
+              <Button variant="outlined" onClick={handleLogout}>
+                Logout
+              </Button>
+            </Box>
           </Box>
 
           <Grid container spacing={3}>
