@@ -1,125 +1,138 @@
-import { Box, Button, Container, Paper, Typography, Avatar, Grid } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Box, Button, Container, Typography, Grid, Snackbar, Alert } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { habitsApi } from '@/lib/habits-api';
+import TodayHabits from '@/components/TodayHabits';
+import StatsCards from '@/components/StatsCards';
+import ProgressBar from '@/components/ProgressBar';
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  const handleComplete = async (habitId: string) => {
+    try {
+      const result = await habitsApi.complete(habitId);
+      const { rewards } = result;
+
+      let message = `+${rewards.xp} XP, +${rewards.gold} Gold`;
+      if (rewards.levelUp) {
+        message += ` 🎉 Level Up! You're now level ${rewards.newLevel}!`;
+      }
+
+      setSnackbar({ open: true, message, severity: 'success' });
+
+      // Refresh user data
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (error: any) {
+      setSnackbar({
+        open: true,
+        message: error.message || 'Failed to complete habit',
+        severity: 'error',
+      });
+    }
+  };
+
+  const handleUpdate = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
+
   if (!user) return null;
+
+  const nextLevelXP = (user.level + 1) * 100;
 
   return (
     <Container maxWidth="lg">
       <Box sx={{ minHeight: '100vh', py: 4 }}>
-        <Paper elevation={3} sx={{ p: 4 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-            <Typography variant="h4" component="h1">
-              Welcome to KameHouse
+        {/* Header */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+          <Box>
+            <Typography variant="h4" component="h1" gutterBottom>
+              Welcome back, {user.displayName || user.username}! 👋
             </Typography>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button variant="contained" onClick={() => navigate('/habits')}>
-                My Habits
-              </Button>
-              <Button variant="outlined" onClick={handleLogout}>
-                Logout
-              </Button>
-            </Box>
+            <Typography variant="body1" color="text.secondary">
+              Ready to build some habits today?
+            </Typography>
           </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button variant="contained" onClick={() => navigate('/habits')}>
+              All Habits
+            </Button>
+            <Button variant="outlined" onClick={handleLogout}>
+              Logout
+            </Button>
+          </Box>
+        </Box>
 
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
-              <Paper sx={{ p: 3, textAlign: 'center' }}>
-                <Avatar
-                  sx={{
-                    width: 120,
-                    height: 120,
-                    mx: 'auto',
-                    mb: 2,
-                    bgcolor: 'primary.main',
-                    fontSize: '3rem',
-                  }}
-                >
-                  {user.displayName?.[0] || user.username[0].toUpperCase()}
-                </Avatar>
-                <Typography variant="h5" gutterBottom>
-                  {user.displayName || user.username}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  @{user.username}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {user.email}
-                </Typography>
-              </Paper>
-            </Grid>
+        {/* Stats Cards */}
+        <Box sx={{ mb: 3 }}>
+          <StatsCards user={user} />
+        </Box>
 
-            <Grid item xs={12} md={8}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Player Stats
-                </Typography>
-                <Grid container spacing={2} sx={{ mt: 1 }}>
-                  <Grid item xs={6} sm={3}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="h4" color="primary">
-                        {user.level}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Level
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="h4" color="success.main">
-                        {user.xp}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        XP
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="h4" color="error.main">
-                        {user.health}/{user.maxHealth}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Health
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="h4" color="warning.main">
-                        {user.gold}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Gold
-                      </Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
-              </Paper>
+        {/* Progress to Next Level */}
+        <Box sx={{ mb: 3 }}>
+          <ProgressBar
+            current={user.xp % 100}
+            max={100}
+            label={`Progress to Level ${user.level + 1}`}
+            color="success"
+          />
+        </Box>
 
-              <Paper sx={{ p: 3, mt: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Coming Soon
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Habit tracking, challenges, and achievements are under development.
-                  Stay tuned for Phase 2!
-                </Typography>
-              </Paper>
-            </Grid>
+        {/* Today's Habits */}
+        <Box sx={{ mb: 3 }}>
+          <TodayHabits key={refreshKey} onComplete={handleComplete} onUpdate={handleUpdate} />
+        </Box>
+
+        {/* Quick Actions */}
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={6}>
+            <Button
+              variant="outlined"
+              fullWidth
+              size="large"
+              onClick={() => navigate('/habits')}
+              sx={{ py: 2 }}
+            >
+              Manage Habits
+            </Button>
           </Grid>
-        </Paper>
+          <Grid item xs={12} sm={6}>
+            <Button
+              variant="outlined"
+              fullWidth
+              size="large"
+              disabled
+              sx={{ py: 2 }}
+            >
+              Achievements (Coming Soon)
+            </Button>
+          </Grid>
+        </Grid>
       </Box>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }
