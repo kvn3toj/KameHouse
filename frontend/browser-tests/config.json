@@ -1,0 +1,65 @@
+{
+  "baseUrl": "http://localhost:5173",
+  "testUser": {
+    "email": "test@kamehouse.com",
+    "password": "Test123!",
+    "displayName": "Test User"
+  },
+  "screenshots": {
+    "enabled": true,
+    "directory": "./browser-tests/screenshots",
+    "format": "png",
+    "fullPage": false
+  },
+  "viewport": {
+    "desktop": {
+      "width": 1440,
+      "height": 900
+    },
+    "tablet": {
+      "width": 768,
+      "height": 1024
+    },
+    "mobile": {
+      "width": 375,
+      "height": 812
+    }
+  },
+  "timeouts": {
+    "navigation": 30000,
+    "action": 5000,
+    "waitForSelector": 10000
+  },
+  "testScenarios": [
+    {
+      "name": "navigation-flow",
+      "description": "Test new navigation structure (Home → Tasks → House → Me)",
+      "enabled": true
+    },
+    {
+      "name": "tasks-page-functionality",
+      "description": "Test unified Tasks page with filters and actions",
+      "enabled": true
+    },
+    {
+      "name": "dashboard-widget",
+      "description": "Test TodayTasksWidget visibility and interaction",
+      "enabled": true
+    },
+    {
+      "name": "mobile-navigation",
+      "description": "Test mobile bottom navigation on small viewport",
+      "enabled": true
+    },
+    {
+      "name": "color-coding-visual",
+      "description": "Verify color-coding system for personal vs household",
+      "enabled": true
+    }
+  ],
+  "reporting": {
+    "enabled": true,
+    "format": "markdown",
+    "outputFile": "./browser-tests/TEST_REPORT.md"
+  }
+}

@@ -1,0 +1,13 @@
+# Screenshots are too large for git
+screenshots/
+*.png
+*.jpg
+*.jpeg
+
+# Test reports (regenerated each run)
+TEST_REPORT.md
+test-results.json
+
+# Temporary files
+*.tmp
+*.log
