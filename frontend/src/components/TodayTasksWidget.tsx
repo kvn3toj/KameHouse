@@ -171,13 +171,8 @@ export default function TodayTasksWidget() {
   };
 
   const handleTaskAction = async (task: AggregatedTask) => {
-    if (task.type === 'habit') {
-      navigate('/habits');
-    } else if (task.type === 'chore') {
-      navigate('/chores');
-    } else if (task.type === 'favor') {
-      navigate('/kamehouse'); // Will add direct Tasks page later
-    }
+    // Navigate to unified Tasks page for all task types
+    navigate('/tasks');
   };
 
   const getTaskIcon = (type: string) => {
@@ -291,7 +286,7 @@ export default function TodayTasksWidget() {
           <Button
             variant="text"
             endIcon={<ArrowIcon />}
-            onClick={() => navigate('/habits')} // Will change to /tasks when created
+            onClick={() => navigate('/tasks')}
             sx={{ fontWeight: 600 }}
           >
             View All
