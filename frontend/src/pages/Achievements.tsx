@@ -8,7 +8,6 @@ import {
   CardContent,
   Chip,
   LinearProgress,
-  CircularProgress,
   Button,
   Tabs,
   Tab,
@@ -21,6 +20,9 @@ import {
 import { achievementsApi } from '@/lib/achievements-api';
 import type { Achievement, AchievementCategory } from '@/types/achievement';
 import { useNavigate } from 'react-router-dom';
+import LoadingState from '@/components/LoadingState';
+import ErrorState from '@/components/ErrorState';
+import EmptyState from '@/components/EmptyState';
 
 const CATEGORIES: { value: string; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -35,6 +37,7 @@ export default function Achievements() {
   const navigate = useNavigate();
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   useEffect(() => {
@@ -43,10 +46,13 @@ export default function Achievements() {
 
   const loadAchievements = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const data = await achievementsApi.getAll();
       setAchievements(data);
-    } catch (error) {
-      console.error('Failed to load achievements:', error);
+    } catch (err: any) {
+      console.error('Failed to load achievements:', err);
+      setError(err.message || 'Failed to load achievements');
     } finally {
       setLoading(false);
     }
@@ -62,10 +68,22 @@ export default function Achievements() {
   const completionPercentage = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
 
   if (loading) {
+    return <LoadingState type="achievements" count={6} fullPage />;
+  }
+
+  if (error) {
     return (
       <Container maxWidth="lg">
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
-          <CircularProgress size={60} />
+        <Box sx={{ py: 8 }}>
+          <ErrorState
+            icon="🏆"
+            title="Failed to Load Achievements"
+            message={error}
+            retryLabel="Try Again"
+            onRetry={loadAchievements}
+            homeLabel="Go Home"
+            onHome={() => navigate('/')}
+          />
         </Box>
       </Container>
     );
@@ -130,8 +148,23 @@ export default function Achievements() {
         </Box>
 
         {/* Achievements Grid */}
-        <Grid container spacing={3}>
-          {filteredAchievements.map((achievement) => {
+        {filteredAchievements.length === 0 ? (
+          <EmptyState
+            icon="🏆"
+            title="No Achievements Found"
+            description={
+              selectedCategory === 'all'
+                ? 'Start completing habits and building streaks to unlock your first achievement!'
+                : `No achievements in the ${CATEGORIES.find(c => c.value === selectedCategory)?.label} category yet.`
+            }
+            actionLabel="View All Categories"
+            onAction={() => setSelectedCategory('all')}
+            secondaryActionLabel="Start Building Habits"
+            onSecondaryAction={() => navigate('/habits')}
+          />
+        ) : (
+          <Grid container spacing={3}>
+            {filteredAchievements.map((achievement) => {
             const progressPercent = Math.min(
               Math.round((achievement.progress / achievement.requirement) * 100),
               100
@@ -178,22 +211,49 @@ export default function Achievements() {
                       {achievement.description}
                     </Typography>
 
-                    {/* Progress Bar (for unlocked achievements) */}
+                    {/* Progress Bar (for locked achievements) */}
                     {!achievement.unlocked && (
                       <Box sx={{ mb: 2 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" fontWeight={600} color="text.secondary">
                             Progress
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {achievement.progress} / {achievement.requirement}
+                          <Typography variant="caption" fontWeight={600} color="primary.main">
+                            {achievement.progress} / {achievement.requirement} ({progressPercent}%)
                           </Typography>
                         </Box>
                         <LinearProgress
                           variant="determinate"
                           value={progressPercent}
-                          sx={{ height: 6, borderRadius: 3 }}
+                          sx={{
+                            height: 8,
+                            borderRadius: 4,
+                            bgcolor: 'action.hover',
+                            '& .MuiLinearProgress-bar': {
+                              borderRadius: 4,
+                              background:
+                                progressPercent >= 80
+                                  ? 'linear-gradient(90deg, #4CAF50 0%, #81C784 100%)'
+                                  : progressPercent >= 50
+                                  ? 'linear-gradient(90deg, #2196F3 0%, #64B5F6 100%)'
+                                  : 'linear-gradient(90deg, #9C27B0 0%, #BA68C8 100%)',
+                            },
+                          }}
                         />
+                        {progressPercent >= 80 && (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              display: 'block',
+                              mt: 0.5,
+                              color: 'success.main',
+                              fontWeight: 600,
+                              fontStyle: 'italic',
+                            }}
+                          >
+                            Almost there! Keep going! 🎯
+                          </Typography>
+                        )}
                       </Box>
                     )}
 
@@ -237,13 +297,6 @@ export default function Achievements() {
             );
           })}
         </Grid>
-
-        {filteredAchievements.length === 0 && (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <Typography variant="h6" color="text.secondary">
-              No achievements in this category yet.
-            </Typography>
-          </Box>
         )}
       </Box>
     </Container>

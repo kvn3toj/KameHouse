@@ -30,7 +30,7 @@ export class TransactionsController {
     @Param('householdId') householdId: string,
     @Body() dto: CreateTransactionDto,
   ): Promise<TransactionResponse> {
-    return this.transactionsService.create(req.user.userId, householdId, dto);
+    return this.transactionsService.create(req.user.id, householdId, dto);
   }
 
   @Post(':householdId/:transactionId/accept')
@@ -38,7 +38,7 @@ export class TransactionsController {
     @Req() req: any,
     @Param('transactionId') transactionId: string,
   ): Promise<TransactionResponse> {
-    return this.transactionsService.accept(req.user.userId, transactionId);
+    return this.transactionsService.accept(req.user.id, transactionId);
   }
 
   @Post(':householdId/:transactionId/complete')
@@ -46,7 +46,7 @@ export class TransactionsController {
     @Req() req: any,
     @Param('transactionId') transactionId: string,
   ): Promise<TransactionResponse> {
-    return this.transactionsService.complete(req.user.userId, transactionId);
+    return this.transactionsService.complete(req.user.id, transactionId);
   }
 
   @Post(':householdId/:transactionId/decline')
@@ -54,7 +54,7 @@ export class TransactionsController {
     @Req() req: any,
     @Param('transactionId') transactionId: string,
   ): Promise<void> {
-    return this.transactionsService.decline(req.user.userId, transactionId);
+    return this.transactionsService.decline(req.user.id, transactionId);
   }
 
   @Delete(':householdId/:transactionId')
@@ -62,7 +62,7 @@ export class TransactionsController {
     @Req() req: any,
     @Param('transactionId') transactionId: string,
   ): Promise<void> {
-    return this.transactionsService.cancel(req.user.userId, transactionId);
+    return this.transactionsService.cancel(req.user.id, transactionId);
   }
 
   @Get(':householdId')
@@ -72,7 +72,7 @@ export class TransactionsController {
     @Query('status') status?: TransactionStatus,
   ): Promise<TransactionResponse[]> {
     return this.transactionsService.getHouseholdTransactions(
-      req.user.userId,
+      req.user.id,
       householdId,
       status,
     );
@@ -83,7 +83,7 @@ export class TransactionsController {
     @Req() req: any,
     @Param('householdId') householdId: string,
   ): Promise<UserBalance> {
-    return this.transactionsService.getUserBalance(req.user.userId, householdId);
+    return this.transactionsService.getUserBalance(req.user.id, householdId);
   }
 
   @Get(':householdId/history/me')
@@ -91,6 +91,6 @@ export class TransactionsController {
     @Req() req: any,
     @Param('householdId') householdId: string,
   ): Promise<BalanceHistoryEntry[]> {
-    return this.transactionsService.getBalanceHistory(req.user.userId, householdId);
+    return this.transactionsService.getBalanceHistory(req.user.id, householdId);
   }
 }

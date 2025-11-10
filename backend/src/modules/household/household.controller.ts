@@ -30,7 +30,7 @@ export class HouseholdController {
     @Req() req: any,
     @Body() dto: CreateHouseholdDto,
   ): Promise<HouseholdResponse> {
-    return this.householdService.create(req.user.userId, dto);
+    return this.householdService.create(req.user.id, dto);
   }
 
   @Post('join')
@@ -38,12 +38,12 @@ export class HouseholdController {
     @Req() req: any,
     @Body() dto: JoinHouseholdDto,
   ): Promise<HouseholdResponse> {
-    return this.householdService.join(req.user.userId, dto);
+    return this.householdService.join(req.user.id, dto);
   }
 
   @Get('my')
   async getMyHousehold(@Req() req: any): Promise<HouseholdResponse | null> {
-    return this.householdService.getUserHousehold(req.user.userId);
+    return this.householdService.getUserHousehold(req.user.id);
   }
 
   @Get(':id')
@@ -57,17 +57,17 @@ export class HouseholdController {
     @Param('id') id: string,
     @Body() dto: UpdateHouseholdDto,
   ): Promise<HouseholdResponse> {
-    return this.householdService.update(req.user.userId, id, dto);
+    return this.householdService.update(req.user.id, id, dto);
   }
 
   @Delete(':id')
   async delete(@Req() req: any, @Param('id') id: string): Promise<void> {
-    return this.householdService.delete(req.user.userId, id);
+    return this.householdService.delete(req.user.id, id);
   }
 
   @Post(':id/leave')
   async leave(@Req() req: any, @Param('id') id: string): Promise<void> {
-    return this.householdService.leave(req.user.userId, id);
+    return this.householdService.leave(req.user.id, id);
   }
 
   @Delete(':id/members/:memberId')
@@ -76,7 +76,7 @@ export class HouseholdController {
     @Param('id') id: string,
     @Param('memberId') memberId: string,
   ): Promise<void> {
-    return this.householdService.removeMember(req.user.userId, id, memberId);
+    return this.householdService.removeMember(req.user.id, id, memberId);
   }
 
   @Put(':id/members/:memberId')
@@ -86,7 +86,7 @@ export class HouseholdController {
     @Param('memberId') memberId: string,
     @Body() dto: UpdateMemberDto,
   ) {
-    return this.householdService.updateMember(req.user.userId, id, memberId, dto);
+    return this.householdService.updateMember(req.user.id, id, memberId, dto);
   }
 
   @Get(':id/leaderboard')

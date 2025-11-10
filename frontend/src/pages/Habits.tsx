@@ -23,10 +23,20 @@ import {
 import { Add as AddIcon, Remove as RemoveIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { habitsApi } from '@/lib/habits-api';
 import type { Habit, CreateHabitDto, HabitType } from '@/types/habit';
+import type { Achievement } from '@/types/achievement';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAchievements } from '@/hooks/useAchievements';
+import { useContextualHints } from '@/hooks/useContextualHints';
+import LoadingState from '@/components/LoadingState';
+import AchievementModal from '@/components/AchievementModal';
+import EmptyState from '@/components/EmptyState';
+import StreakMilestoneToast from '@/components/StreakMilestoneToast';
+import ContextualHint from '@/components/ContextualHint';
 
 export default function Habits() {
   const { user } = useAuth();
+  const { checkForNew, markSeen } = useAchievements();
+  const { activeHint, showHint, dismissHint } = useContextualHints();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -35,6 +45,13 @@ export default function Habits() {
     message: '',
     severity: 'success',
   });
+  const [achievementToShow, setAchievementToShow] = useState<Achievement | null>(null);
+  const [streakMilestone, setStreakMilestone] = useState<{
+    show: boolean;
+    streak: number;
+    habitName: string;
+    bonusXP: number;
+  }>({ show: false, streak: 0, habitName: '', bonusXP: 0 });
 
   const [newHabit, setNewHabit] = useState<CreateHabitDto>({
     title: '',
@@ -46,6 +63,15 @@ export default function Habits() {
   useEffect(() => {
     loadHabits();
   }, []);
+
+  // Show contextual hints based on state
+  useEffect(() => {
+    if (!loading) {
+      showHint([
+        { type: 'first-habit-created', condition: habits.length === 1 },
+      ]);
+    }
+  }, [habits, loading, showHint]);
 
   const loadHabits = async () => {
     try {
@@ -60,6 +86,8 @@ export default function Habits() {
 
   const handleComplete = async (habitId: string) => {
     try {
+      const habit = habits.find(h => h.id === habitId);
+      const isFirstCompletion = habits.every(h => h.totalCompletions === 0);
       const result = await habitsApi.complete(habitId);
       await loadHabits();
 
@@ -70,6 +98,35 @@ export default function Habits() {
       }
 
       setSnackbar({ open: true, message, severity: 'success' });
+
+      // Show first-completion hint
+      if (isFirstCompletion) {
+        showHint([{ type: 'first-completion', condition: true }]);
+      }
+
+      // Check for streak milestones (3, 7, 14, 30 days)
+      if (habit) {
+        const newStreak = habit.currentStreak + 1;
+        const isMilestone = newStreak === 3 || newStreak === 7 || newStreak === 14 || newStreak === 30;
+
+        if (isMilestone) {
+          const bonusXP = newStreak === 30 ? 200 : newStreak === 14 ? 100 : newStreak === 7 ? 50 : 25;
+          setStreakMilestone({
+            show: true,
+            streak: newStreak,
+            habitName: habit.title,
+            bonusXP,
+          });
+        }
+      }
+
+      // Check for newly unlocked achievements
+      const newAchievements = await checkForNew();
+      if (newAchievements.length > 0) {
+        // Show the first new achievement
+        setAchievementToShow(newAchievements[0]);
+        showHint([{ type: 'achievement-unlocked', condition: true }]);
+      }
     } catch (error: any) {
       setSnackbar({
         open: true,
@@ -77,6 +134,13 @@ export default function Habits() {
         severity: 'error',
       });
     }
+  };
+
+  const handleAchievementClose = () => {
+    if (achievementToShow) {
+      markSeen(achievementToShow.id);
+    }
+    setAchievementToShow(null);
   };
 
   const handleUncomplete = async (habitId: string) => {
@@ -139,13 +203,7 @@ export default function Habits() {
   };
 
   if (loading) {
-    return (
-      <Container>
-        <Box sx={{ py: 4, textAlign: 'center' }}>
-          <Typography>Loading habits...</Typography>
-        </Box>
-      </Container>
-    );
+    return <LoadingState type="habits" count={3} fullPage />;
   }
 
   return (
@@ -159,11 +217,13 @@ export default function Habits() {
         </Box>
 
         {habits.length === 0 ? (
-          <Paper sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              No habits yet. Create your first habit to start building good routines!
-            </Typography>
-          </Paper>
+          <EmptyState
+            icon="📝"
+            title="No Habits Yet"
+            description="Create your first habit to start building good routines and earning rewards!"
+            actionLabel="Create Habit"
+            onAction={() => setOpenDialog(true)}
+          />
         ) : (
           <Grid container spacing={2}>
             {habits.map((habit) => (
@@ -289,6 +349,25 @@ export default function Habits() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Achievement unlock modal */}
+      <AchievementModal
+        achievement={achievementToShow}
+        open={achievementToShow !== null}
+        onClose={handleAchievementClose}
+      />
+
+      {/* Streak milestone celebration */}
+      <StreakMilestoneToast
+        open={streakMilestone.show}
+        onClose={() => setStreakMilestone({ ...streakMilestone, show: false })}
+        streak={streakMilestone.streak}
+        habitName={streakMilestone.habitName}
+        bonusXP={streakMilestone.bonusXP}
+      />
+
+      {/* Contextual hints */}
+      <ContextualHint type={activeHint} onDismiss={dismissHint} />
     </Container>
   );
 }

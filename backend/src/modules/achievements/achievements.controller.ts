@@ -10,12 +10,12 @@ export class AchievementsController {
 
   @Get()
   async getUserAchievements(@Req() req: any): Promise<AchievementResponseDto[]> {
-    return this.achievementsService.getUserAchievements(req.user.userId);
+    return this.achievementsService.getUserAchievements(req.user.id);
   }
 
   @Post('check')
   async checkAchievements(@Req() req: any): Promise<AchievementResponseDto[]> {
-    return this.achievementsService.checkAndUnlockAchievements(req.user.userId);
+    return this.achievementsService.checkAndUnlockAchievements(req.user.id);
   }
 
   @Post('seed')

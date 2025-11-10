@@ -45,15 +45,19 @@ model User {
   lastActive DateTime @default(now())
 
   // Relations
-  habits           Habit[]
-  dailyTasks       DailyTask[]
-  completions      HabitCompletion[]
-  achievements     UserAchievement[]
-  streakHistory    StreakHistory[]
-  householdMembers HouseholdMember[]
-  ownedHouseholds  Household[]          @relation("HouseholdOwner")
-  requestedFavors  FavorTransaction[]   @relation("RequestedFavors")
-  assignedFavors   FavorTransaction[]   @relation("AssignedFavors")
+  habits                Habit[]
+  dailyTasks            DailyTask[]
+  completions           HabitCompletion[]
+  userQuests            UserQuest[]
+  achievements          UserAchievement[]
+  streakHistory         StreakHistory[]
+  householdMembers      HouseholdMember[]
+  ownedHouseholds       Household[]               @relation("HouseholdOwner")
+  requestedFavors       FavorTransaction[]        @relation("RequestedFavors")
+  assignedFavors        FavorTransaction[]        @relation("AssignedFavors")
+  choreAssignments      ChoreAssignment[]
+  announcements         Announcement[]
+  announcementReactions AnnouncementReaction[]
 
   @@map("users")
 }
@@ -170,6 +174,79 @@ model DailyTask {
 }
 
 // ============================================
+// DAILY QUESTS
+// ============================================
+
+enum QuestType {
+  HABIT_COMPLETION    // Complete X habits
+  STREAK_BUILD        // Build/maintain streak
+  SPECIFIC_HABIT      // Complete specific habit
+  SOCIAL              // Help family member
+  CUSTOM              // Custom requirements
+}
+
+model Quest {
+  id          String    @id @default(uuid())
+
+  // Quest Details
+  key         String    @unique // e.g., "complete_3_habits", "maintain_streak"
+  title       String
+  description String
+  icon        String?
+
+  // Quest Type & Requirements
+  type        QuestType
+  category    String    @default("daily") // "daily", "weekly", "special"
+  targetCount Int       @default(1)       // How many to complete
+
+  // Rewards
+  xpReward    Int       @default(20)
+  goldReward  Int       @default(10)
+  gemsReward  Int       @default(0)
+
+  // Settings
+  isActive    Boolean   @default(true)
+  isDaily     Boolean   @default(true)
+  difficulty  Int       @default(1)       // 1-3 (easy, medium, hard)
+
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  userQuests  UserQuest[]
+
+  @@map("quests")
+}
+
+model UserQuest {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questId     String
+  quest       Quest    @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  // Progress
+  progress    Int      @default(0)
+  isCompleted Boolean  @default(false)
+  completedAt DateTime?
+
+  // Daily reset tracking
+  assignedDate DateTime @db.Date
+  expiresAt    DateTime
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("user_quests")
+  @@unique([userId, questId, assignedDate])
+  @@index([userId])
+  @@index([assignedDate])
+  @@index([isCompleted])
+}
+
+// ============================================
 // GAMIFICATION
 // ============================================
 
@@ -263,8 +340,10 @@ model Household {
   updatedAt   DateTime @updatedAt
   
   // Relations
-  members      HouseholdMember[]
-  transactions FavorTransaction[]
+  members        HouseholdMember[]
+  transactions   FavorTransaction[]
+  choreTemplates ChoreTemplate[]
+  announcements  Announcement[]
 
   @@map("households")
   @@index([ownerId])
@@ -337,4 +416,140 @@ model FavorTransaction {
   @@index([requesterId])
   @@index([assigneeId])
   @@index([status])
+}
+
+// ============================================
+// CHORE ROTATION SYSTEM
+// ============================================
+
+enum ChoreFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+model ChoreTemplate {
+  id            String        @id @default(uuid())
+  householdId   String
+  household     Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  // Chore Details
+  title         String
+  description   String?
+  icon          String?       @default("🧹")
+
+  // Difficulty & Time
+  difficulty    Int           @default(1)      // 1-5
+  estimatedTime Int?                           // minutes
+
+  // Rewards
+  xpReward      Int           @default(20)
+  goldReward    Int           @default(10)
+  letsCredit    Int           @default(5)      // LETS credits for completion
+
+  // Settings
+  frequency     ChoreFrequency @default(WEEKLY)
+  photoRequired Boolean       @default(false)
+  isActive      Boolean       @default(true)
+
+  // Timestamps
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  assignments   ChoreAssignment[]
+
+  @@map("chore_templates")
+  @@index([householdId])
+}
+
+model ChoreAssignment {
+  id           String        @id @default(uuid())
+  choreId      String
+  chore        ChoreTemplate @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  assignedTo   String
+  user         User          @relation(fields: [assignedTo], references: [id], onDelete: Cascade)
+
+  // Assignment Period
+  weekStarting DateTime      @db.Date
+
+  // Completion
+  isCompleted  Boolean       @default(false)
+  completedAt  DateTime?
+  photoUrl     String?
+  notes        String?
+
+  // Swapping
+  swappedWith  String?                        // User ID if chore was swapped
+  swapRequested Boolean      @default(false)
+
+  // Timestamps
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("chore_assignments")
+  @@unique([choreId, weekStarting, assignedTo])
+  @@index([assignedTo])
+  @@index([weekStarting])
+  @@index([isCompleted])
+}
+
+// ============================================
+// HOUSE BULLETIN BOARD
+// ============================================
+
+enum AnnouncementType {
+  INFO
+  URGENT
+  EVENT
+  REMINDER
+  POLL
+}
+
+model Announcement {
+  id          String   @id @default(uuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Announcement Details
+  title       String
+  content     String
+  type        AnnouncementType @default(INFO)
+  isPinned    Boolean  @default(false)
+  expiresAt   DateTime?
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  reactions   AnnouncementReaction[]
+
+  @@map("announcements")
+  @@index([householdId])
+  @@index([authorId])
+  @@index([isPinned])
+  @@index([type])
+}
+
+model AnnouncementReaction {
+  id             String   @id @default(uuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Reaction
+  emoji          String   // 👍 ❤️ 😂 😮 😢 🎉
+
+  // Timestamp
+  createdAt      DateTime @default(now())
+
+  @@map("announcement_reactions")
+  @@unique([announcementId, userId, emoji])
+  @@index([announcementId])
+  @@index([userId])
 }

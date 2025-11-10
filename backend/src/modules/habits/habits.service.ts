@@ -1,13 +1,18 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { CreateHabitDto } from './dto/create-habit.dto';
 import { UpdateHabitDto } from './dto/update-habit.dto';
 import { CompleteHabitDto } from './dto/complete-habit.dto';
 import { HabitType } from '@prisma/client';
+import { QuestsService } from '../quests/quests.service';
 
 @Injectable()
 export class HabitsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => QuestsService))
+    private questsService: QuestsService,
+  ) {}
 
   async create(userId: string, createHabitDto: CreateHabitDto) {
     const habit = await this.prisma.habit.create({
@@ -149,6 +154,16 @@ export class HabitsService {
         longestStreak: Math.max(habit.longestStreak, habit.currentStreak + 1),
       },
     });
+
+    // Update quest progress
+    try {
+      await this.questsService.incrementProgress(userId, 'complete_1_habit', 1);
+      await this.questsService.incrementProgress(userId, 'complete_3_habits', 1);
+      await this.questsService.incrementProgress(userId, 'complete_5_habits', 1);
+    } catch (error) {
+      // Silently fail quest updates - don't block habit completion
+      console.error('Failed to update quest progress:', error);
+    }
 
     return {
       completion,
