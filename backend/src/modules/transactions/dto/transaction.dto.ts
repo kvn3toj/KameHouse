@@ -56,5 +56,13 @@ export interface UserBalance {
   balance: number; // Can be negative!
   totalEarned: number;
   totalSpent: number;
-  isInDebt: boolean;
+  isReceiving: boolean; // True when balance < 0 (receiving support from household)
+  creditsEarned?: number;
+  creditsSpent?: number;
+  favorsDone?: number;
+  favorsReceived?: number;
+  householdStats?: {
+    healthScore: number;
+    activeMembers: number;
+  };
 }

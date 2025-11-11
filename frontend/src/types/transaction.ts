@@ -44,7 +44,15 @@ export interface UserBalance {
   balance: number;
   totalEarned: number;
   totalSpent: number;
-  isInDebt: boolean;
+  isReceiving: boolean; // True when balance < 0 (receiving support from household)
+  creditsEarned?: number;
+  creditsSpent?: number;
+  favorsDone?: number;
+  favorsReceived?: number;
+  householdStats?: {
+    healthScore: number;
+    activeMembers: number;
+  };
 }
 
 export interface CreateTransactionDto {

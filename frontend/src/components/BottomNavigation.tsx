@@ -4,44 +4,28 @@ import {
   BottomNavigation as MuiBottomNavigation,
   BottomNavigationAction,
   Badge,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Divider,
-  Box,
-  Typography,
 } from '@mui/material';
 import {
   Home as HomeIcon,
-  CheckCircle as TasksIcon,
-  People as HouseIcon,
+  AccountBalance as TemploIcon,
   Person as ProfileIcon,
-  CleaningServices as ChoresIcon,
-  CheckCircle as HabitsIcon,
-  EmojiEvents as AchievementsIcon,
-  ExitToApp as LogoutIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { achievementsApi } from '@/lib/achievements-api';
+import MeDrawer from './MeDrawer';
 
 /**
- * Mobile bottom navigation bar - Moksart UX Redesign
- * Shows on mobile devices with intuitive 4-tab structure:
+ * Mobile bottom navigation bar - Phase 4A: Templo Navigation
+ * Shows on mobile devices with simplified 3-tab structure:
  * - Home: Dashboard with daily overview
- * - Tasks: Quick access to habits and chores (unified action hub)
- * - House: Family Hub (KameHouse) with social features
- * - Me: Personal profile, achievements, settings (drawer)
+ * - Templo: Sacred household center (formerly Family Hub)
+ * - Me: Personal space drawer (habits, achievements, profile, settings)
  */
 export default function BottomNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
   const [newAchievementsCount, setNewAchievementsCount] = useState(0);
-  const [moreDrawerOpen, setMoreDrawerOpen] = useState(false);
+  const [meDrawerOpen, setMeDrawerOpen] = useState(false);
 
   useEffect(() => {
     loadNotificationCounts();
@@ -62,29 +46,18 @@ export default function BottomNavigation() {
   const getCurrentValue = () => {
     const path = location.pathname;
     if (path === '/') return 0; // Home
-    if (path === '/tasks' || path === '/habits' || path === '/chores') return 1; // Tasks
-    if (path === '/kamehouse') return 2; // House
-    if (path === '/achievements') return 3; // Me (includes achievements, profile)
+    if (path === '/templo') return 1; // Templo
+    if (path === '/habits' || path === '/achievements' || path === '/profile' || path === '/stats' || path === '/settings') return 2; // Me (personal pages)
     return -1; // No selection for other pages
   };
 
   const handleChange = (_event: React.SyntheticEvent, newValue: number) => {
-    if (newValue === 3) {
-      // Open "Me" drawer for profile, achievements, settings
-      setMoreDrawerOpen(true);
+    if (newValue === 2) {
+      // Open "Me" drawer for personal space
+      setMeDrawerOpen(true);
     } else {
-      const paths = ['/', '/tasks', '/kamehouse'];
+      const paths = ['/', '/templo'];
       navigate(paths[newValue]);
-    }
-  };
-
-  const handleMoreItemClick = (path: string) => {
-    setMoreDrawerOpen(false);
-    if (path === 'logout') {
-      logout();
-      navigate('/login');
-    } else {
-      navigate(path);
     }
   };
 
@@ -127,8 +100,7 @@ export default function BottomNavigation() {
           }}
         >
           <BottomNavigationAction label="Home" icon={<HomeIcon />} />
-          <BottomNavigationAction label="Tasks" icon={<TasksIcon />} />
-          <BottomNavigationAction label="House" icon={<HouseIcon />} />
+          <BottomNavigationAction label="Templo" icon={<TemploIcon />} />
           <BottomNavigationAction
             label="Me"
             icon={
@@ -140,97 +112,13 @@ export default function BottomNavigation() {
         </MuiBottomNavigation>
       </Paper>
 
-      {/* More Drawer */}
-      <Drawer
+      {/* Me Drawer */}
+      <MeDrawer
+        open={meDrawerOpen}
+        onClose={() => setMeDrawerOpen(false)}
         anchor="bottom"
-        open={moreDrawerOpen}
-        onClose={() => setMoreDrawerOpen(false)}
-        sx={{
-          display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': {
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-          },
-        }}
-      >
-        <Box sx={{ width: '100%', pb: 2 }}>
-          {/* Drawer Handle */}
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              py: 1.5,
-            }}
-          >
-            <Box
-              sx={{
-                width: 40,
-                height: 4,
-                bgcolor: 'divider',
-                borderRadius: 2,
-              }}
-            />
-          </Box>
-
-          {/* Drawer Header */}
-          <Box sx={{ px: 3, pb: 2 }}>
-            <Typography variant="h6" fontWeight="bold">
-              My Profile
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Personal settings and achievements
-            </Typography>
-          </Box>
-
-          <Divider />
-
-          {/* Menu Items */}
-          <List>
-            <ListItem disablePadding>
-              <ListItemButton onClick={() => handleMoreItemClick('/achievements')}>
-                <ListItemIcon>
-                  <Badge badgeContent={newAchievementsCount} color="error">
-                    <AchievementsIcon />
-                  </Badge>
-                </ListItemIcon>
-                <ListItemText
-                  primary="Achievements"
-                  secondary={newAchievementsCount > 0 ? `${newAchievementsCount} new!` : undefined}
-                />
-              </ListItemButton>
-            </ListItem>
-
-            <ListItem disablePadding>
-              <ListItemButton onClick={() => handleMoreItemClick('/habits')}>
-                <ListItemIcon>
-                  <HabitsIcon />
-                </ListItemIcon>
-                <ListItemText primary="My Habits" />
-              </ListItemButton>
-            </ListItem>
-
-            <ListItem disablePadding>
-              <ListItemButton onClick={() => handleMoreItemClick('/chores')}>
-                <ListItemIcon>
-                  <ChoresIcon />
-                </ListItemIcon>
-                <ListItemText primary="My Chores" />
-              </ListItemButton>
-            </ListItem>
-
-            <Divider sx={{ my: 1 }} />
-
-            <ListItem disablePadding>
-              <ListItemButton onClick={() => handleMoreItemClick('logout')}>
-                <ListItemIcon>
-                  <LogoutIcon color="error" />
-                </ListItemIcon>
-                <ListItemText primary="Logout" primaryTypographyProps={{ color: 'error' }} />
-              </ListItemButton>
-            </ListItem>
-          </List>
-        </Box>
-      </Drawer>
+        newAchievementsCount={newAchievementsCount}
+      />
     </>
   );
 }

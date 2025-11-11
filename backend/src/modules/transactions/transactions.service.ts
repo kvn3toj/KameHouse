@@ -312,7 +312,13 @@ export class TransactionsService {
       balance,
       totalEarned,
       totalSpent,
-      isInDebt: balance < 0,
+      isReceiving: balance < 0, // True when receiving support from household
+      creditsEarned: totalEarned,
+      creditsSpent: totalSpent,
+      favorsDone: asAssignee.length,
+      favorsReceived: asRequester.length,
+      // Household stats can be added later as needed
+      householdStats: undefined,
     };
   }
 

@@ -318,27 +318,51 @@ enum HouseholdRole {
   MEMBER
 }
 
+// Dunbar's Layers: Household size tiers based on human-scale community research
+enum HouseholdSizeTier {
+  SMALL    // 2-7 members: Intimate friends layer (highest trust)
+  MEDIUM   // 8-20 members: Best friends layer (very high trust)
+  LARGE    // 21-68 members: Good friends layer (optimal for cooperation)
+  CLAN     // 69-200 members: Casual friends layer (requires governance)
+}
+
+// Household trust development stages (Tuckman's model)
+enum HouseholdStage {
+  FORMING     // Week 1-2: Getting to know each other
+  STORMING    // Week 3-6: Conflicts and norm negotiation
+  NORMING     // Week 7-12: Shared expectations emerge
+  PERFORMING  // Month 4+: High trust, seamless collaboration
+}
+
 model Household {
   id          String   @id @default(uuid())
-  
+
   // Household Details
   name        String
   description String?
   avatar      String?
   inviteCode  String   @unique @default(uuid())
-  
+
+  // Size Configuration (Dunbar's Layers)
+  sizeTier    HouseholdSizeTier @default(LARGE)
+  maxMembers  Int      @default(65)  // Default to optimal "good friends" layer
+  memberCount Int      @default(0)   // Cached count for performance
+
+  // Trust Development
+  stage       HouseholdStage @default(FORMING)
+  healthScore Int      @default(50)  // 0-100 health metric
+
   // Settings
   isActive    Boolean  @default(true)
-  maxMembers  Int      @default(10)
-  
+
   // Owner
   ownerId     String
   owner       User     @relation("HouseholdOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  
+
   // Timestamps
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relations
   members        HouseholdMember[]
   transactions   FavorTransaction[]
@@ -348,6 +372,8 @@ model Household {
   @@map("households")
   @@index([ownerId])
   @@index([inviteCode])
+  @@index([sizeTier])
+  @@index([stage])
 }
 
 model HouseholdMember {
@@ -385,37 +411,48 @@ enum TransactionStatus {
   CANCELLED
 }
 
+// Trust levels for favors based on Dunbar's Layers
+enum TrustLevel {
+  LOW     // 1-10 credits: Casual friends, strangers (low risk)
+  MEDIUM  // 10-50 credits: Good friends (moderate commitment)
+  HIGH    // 50-200 credits: Best/intimate friends (high vulnerability)
+}
+
 model FavorTransaction {
   id             String            @id @default(uuid())
   householdId    String
   household      Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  
+
   // Who needs the favor
   requesterId    String
   requester      User              @relation("RequestedFavors", fields: [requesterId], references: [id], onDelete: Cascade)
-  
+
   // Who will do the favor (can be null for open requests)
   assigneeId     String?
   assignee       User?             @relation("AssignedFavors", fields: [assigneeId], references: [id], onDelete: Cascade)
-  
+
   // Task Details
   title          String
   description    String?
   credits        Int               @default(10) // Favor credits for this task
-  
+
+  // Trust Level (automatically set based on credits)
+  trustLevel     TrustLevel        @default(LOW)
+
   // Status
   status         TransactionStatus @default(PENDING)
-  
+
   // Timestamps
   createdAt      DateTime          @default(now())
   acceptedAt     DateTime?
   completedAt    DateTime?
-  
+
   @@map("favor_transactions")
   @@index([householdId])
   @@index([requesterId])
   @@index([assigneeId])
   @@index([status])
+  @@index([trustLevel])
 }
 
 // ============================================

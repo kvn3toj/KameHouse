@@ -22,10 +22,15 @@ import {
   AttachMoney as MarketplaceIcon,
   Menu as MenuIcon,
   ExitToApp as LogoutIcon,
+  Person as PersonIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { achievementsApi } from '@/lib/achievements-api';
+import { householdApi } from '@/lib/household-api';
+import MeDrawer from './MeDrawer';
+import HouseSettingsDrawer from './HouseSettingsDrawer';
 
 /**
  * Persistent navigation bar with notification badges
@@ -39,9 +44,13 @@ export default function NavigationBar() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileMenuAnchor, setMobileMenuAnchor] = useState<null | HTMLElement>(null);
   const [newAchievementsCount, setNewAchievementsCount] = useState(0);
+  const [meDrawerOpen, setMeDrawerOpen] = useState(false);
+  const [houseSettingsDrawerOpen, setHouseSettingsDrawerOpen] = useState(false);
+  const [household, setHousehold] = useState<any>(null);
 
   useEffect(() => {
     loadNotificationCounts();
+    loadHousehold();
     // Poll for new notifications every 30 seconds
     const interval = setInterval(loadNotificationCounts, 30000);
     return () => clearInterval(interval);
@@ -58,6 +67,15 @@ export default function NavigationBar() {
     }
   };
 
+  const loadHousehold = async () => {
+    try {
+      const data = await householdApi.getMy();
+      setHousehold(data);
+    } catch (error) {
+      console.error('Failed to load household:', error);
+    }
+  };
+
   const handleNavigate = (path: string) => {
     navigate(path);
     setMobileMenuAnchor(null);
@@ -71,9 +89,9 @@ export default function NavigationBar() {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // Phase 4A: Simplified navigation with Templo as centerpiece
   const navItems = [
-    { path: '/', label: 'Home', icon: <HomeIcon />, color: 'default' },
-    { path: '/habits', label: 'My Habits', icon: <HabitsIcon />, color: 'personal' },
+    { path: '/templo', label: 'Templo', icon: '🏛️', color: 'household', primary: true },
     {
       path: '/achievements',
       label: 'Achievements',
@@ -81,23 +99,22 @@ export default function NavigationBar() {
       badge: newAchievementsCount,
       color: 'personal',
     },
-    { path: '/kamehouse', label: 'Family Hub', icon: <FamilyIcon />, color: 'household' },
-    { path: '/chores', label: 'House Tasks', icon: <ChoresIcon />, color: 'household' },
   ];
 
   return (
-    <AppBar
-      position="sticky"
-      elevation={2}
-      sx={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        // Mobile polish: rounded bottom corners and backdrop blur
-        borderBottomLeftRadius: { xs: 16, md: 0 },
-        borderBottomRightRadius: { xs: 16, md: 0 },
-        backdropFilter: { xs: 'blur(10px)', md: 'none' },
-        backgroundColor: { xs: 'rgba(102, 126, 234, 0.95)', md: 'transparent' },
-      }}
-    >
+    <>
+      <AppBar
+        position="sticky"
+        elevation={2}
+        sx={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          // Mobile polish: rounded bottom corners and backdrop blur
+          borderBottomLeftRadius: { xs: 16, md: 0 },
+          borderBottomRightRadius: { xs: 16, md: 0 },
+          backdropFilter: { xs: 'blur(10px)', md: 'none' },
+          backgroundColor: { xs: 'rgba(102, 126, 234, 0.95)', md: 'transparent' },
+        }}
+      >
       <Toolbar>
         {/* Logo/Title */}
         <Typography
@@ -133,7 +150,7 @@ export default function NavigationBar() {
                 <Button
                   color="inherit"
                   onClick={() => handleNavigate(item.path)}
-                  startIcon={item.icon}
+                  startIcon={typeof item.icon === 'string' ? null : item.icon}
                   sx={{
                     fontWeight: isActive(item.path) ? 700 : 400,
                     bgcolor: isActive(item.path)
@@ -142,6 +159,7 @@ export default function NavigationBar() {
                     borderBottom: isActive(item.path) ? '3px solid white' : '3px solid transparent',
                     borderRadius: '4px 4px 0 0',
                     px: 2,
+                    fontSize: item.primary ? '1.1rem' : '1rem',
                     // Subtle color-coding: purple tint for personal, blue tint for household
                     ...(item.color === 'personal' && !isActive(item.path) && {
                       '&:hover': {
@@ -160,6 +178,7 @@ export default function NavigationBar() {
                     }),
                   }}
                 >
+                  {typeof item.icon === 'string' && <span style={{ marginRight: 8 }}>{item.icon}</span>}
                   {item.label}
                 </Button>
               </Badge>
@@ -167,11 +186,29 @@ export default function NavigationBar() {
           </Box>
         )}
 
-        {/* Desktop Logout */}
+        {/* Desktop Drawer Buttons */}
         {!isMobile && (
-          <Button color="inherit" onClick={handleLogout} startIcon={<LogoutIcon />}>
-            Logout
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <IconButton
+              color="inherit"
+              onClick={() => setMeDrawerOpen(true)}
+              aria-label="Open personal menu"
+            >
+              <Badge badgeContent={newAchievementsCount} color="error">
+                <PersonIcon />
+              </Badge>
+            </IconButton>
+            <IconButton
+              color="inherit"
+              onClick={() => setHouseSettingsDrawerOpen(true)}
+              aria-label="Open house settings"
+            >
+              <SettingsIcon />
+            </IconButton>
+            <Button color="inherit" onClick={handleLogout} startIcon={<LogoutIcon />}>
+              Logout
+            </Button>
+          </Box>
         )}
 
         {/* Mobile Menu */}
@@ -215,6 +252,23 @@ export default function NavigationBar() {
           </>
         )}
       </Toolbar>
-    </AppBar>
+      </AppBar>
+
+      {/* Drawers */}
+      <MeDrawer
+        open={meDrawerOpen}
+        onClose={() => setMeDrawerOpen(false)}
+        newAchievementsCount={newAchievementsCount}
+      />
+      <HouseSettingsDrawer
+        open={houseSettingsDrawerOpen}
+        onClose={() => setHouseSettingsDrawerOpen(false)}
+        household={household ? {
+          id: household.id,
+          name: household.name,
+          inviteCode: household.inviteCode
+        } : null}
+      />
+    </>
   );
 }

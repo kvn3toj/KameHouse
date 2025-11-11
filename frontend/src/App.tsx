@@ -9,7 +9,7 @@ import Register from '@/pages/Register';
 import Dashboard from '@/pages/Dashboard';
 import Habits from '@/pages/Habits';
 import Achievements from '@/pages/Achievements';
-import KameHouse from '@/pages/KameHouse';
+import Templo from '@/pages/Templo';
 import Marketplace from '@/pages/Marketplace';
 import Chores from '@/pages/Chores';
 import BulletinBoard from '@/pages/BulletinBoard';
@@ -104,14 +104,19 @@ function AppContent() {
           }
         />
         <Route
-          path="/kamehouse"
+          path="/templo"
           element={
             <ProtectedRoute>
               <Layout>
-                <KameHouse />
+                <Templo />
               </Layout>
             </ProtectedRoute>
           }
+        />
+        {/* Legacy redirect for backward compatibility */}
+        <Route
+          path="/kamehouse"
+          element={<Navigate to="/templo" replace />}
         />
         <Route
           path="/marketplace"
