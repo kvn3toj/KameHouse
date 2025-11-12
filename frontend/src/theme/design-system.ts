@@ -12,62 +12,50 @@ import { alpha } from '@mui/material/styles';
 // ========================================
 
 /**
- * Semantic Color Palette
- * Each color has a specific meaning and use case
+ * KameHouse Official Color Palette
+ * Based on the Habits page design - these are the ONLY colors used in the app
+ *
+ * 4 Core Colors:
+ * - Purple (Primary): Level, brand, main actions
+ * - Green (Success): XP, achievements, completion
+ * - Yellow (Warning): Gold, streaks, attention
+ * - Red (Error): Health, errors, critical states
  */
 export const COLORS = {
-  // Primary Brand Colors
+  // Primary Brand Color - PURPLE/INDIGO
   primary: {
-    main: '#6366F1',      // Indigo - Main brand color
+    main: '#6366F1',      // Indigo - Level, brand, primary actions
     light: '#818CF8',
     dark: '#4F46E5',
     subtle: alpha('#6366F1', 0.1),
     hover: alpha('#6366F1', 0.04),
   },
 
-  // Secondary/Accent
-  secondary: {
-    main: '#EC4899',      // Pink - Motivation, celebration
-    light: '#F472B6',
-    dark: '#DB2777',
-    subtle: alpha('#EC4899', 0.1),
-    hover: alpha('#EC4899', 0.04),
-  },
-
-  // Success States
+  // Success/Progress - GREEN
   success: {
-    main: '#10B981',      // Green - Achievements, completion
+    main: '#10B981',      // Green - XP, achievements, completion
     light: '#34D399',
     dark: '#059669',
     subtle: alpha('#10B981', 0.1),
     hover: alpha('#10B981', 0.04),
   },
 
-  // Warning/Attention
+  // Warning/Attention - YELLOW
   warning: {
-    main: '#F59E0B',      // Amber - Streaks, attention
+    main: '#F59E0B',      // Amber - Gold, streaks, attention
     light: '#FBBF24',
     dark: '#D97706',
     subtle: alpha('#F59E0B', 0.1),
     hover: alpha('#F59E0B', 0.04),
   },
 
-  // Error/Critical
+  // Error/Health - RED
   error: {
-    main: '#EF4444',      // Red - Errors, failures
+    main: '#EF4444',      // Red - Health, errors, critical
     light: '#F87171',
     dark: '#DC2626',
     subtle: alpha('#EF4444', 0.1),
     hover: alpha('#EF4444', 0.04),
-  },
-
-  // Info/Neutral
-  info: {
-    main: '#3B82F6',      // Blue - Information
-    light: '#60A5FA',
-    dark: '#2563EB',
-    subtle: alpha('#3B82F6', 0.1),
-    hover: alpha('#3B82F6', 0.04),
   },
 
   // Neutrals/Grays
@@ -293,19 +281,27 @@ export const COMPONENTS = {
     },
   },
 
-  // Buttons
+  // Buttons (using only core colors)
   button: {
     primary: {
       variant: 'contained' as const,
-      color: 'primary' as const,
+      color: 'primary' as const,      // Purple
     },
-    secondary: {
-      variant: 'outlined' as const,
-      color: 'primary' as const,
-    },
-    action: {
+    success: {
       variant: 'contained' as const,
-      size: 'large' as const,
+      color: 'success' as const,      // Green
+    },
+    warning: {
+      variant: 'contained' as const,
+      color: 'warning' as const,      // Yellow
+    },
+    error: {
+      variant: 'contained' as const,
+      color: 'error' as const,        // Red
+    },
+    outlined: {
+      variant: 'outlined' as const,
+      color: 'primary' as const,      // Purple outline
     },
   },
 
@@ -322,26 +318,27 @@ export const COMPONENTS = {
 
 /**
  * Status-specific color mappings
+ * Uses only the 4 core colors
  */
 export const STATUS_COLORS = {
   // Quest/Task Status
-  completed: COLORS.success.main,
-  pending: COLORS.warning.main,
-  failed: COLORS.error.main,
-  active: COLORS.info.main,
-  locked: COLORS.neutral[400],
+  completed: COLORS.success.main,     // Green
+  pending: COLORS.warning.main,       // Yellow
+  failed: COLORS.error.main,          // Red
+  active: COLORS.primary.main,        // Purple
+  locked: COLORS.neutral[400],        // Gray
 
   // Habit Streaks
   streak: {
-    hot: COLORS.error.main,        // 🔥 Active streak
-    cold: COLORS.neutral[400],      // Broken streak
-    milestone: COLORS.secondary.main, // Special milestones
+    hot: COLORS.warning.main,          // 🔥 Yellow/amber for hot streaks
+    cold: COLORS.neutral[400],         // Gray for broken
+    milestone: COLORS.primary.main,    // Purple for special
   },
 
   // Transaction Types
-  earned: COLORS.success.main,
-  spent: COLORS.error.main,
-  pending: COLORS.warning.main,
+  earned: COLORS.success.main,        // Green
+  spent: COLORS.error.main,           // Red
+  pending: COLORS.warning.main,       // Yellow
 } as const;
 
 // ========================================
@@ -350,26 +347,28 @@ export const STATUS_COLORS = {
 
 /**
  * Helper functions for common patterns
+ * Uses only the 4 core colors
  */
 export const HELPERS = {
   /**
    * Get color for completion percentage
    */
   getProgressColor: (percentage: number) => {
-    if (percentage >= 100) return COLORS.success.main;
-    if (percentage >= 75) return COLORS.info.main;
-    if (percentage >= 50) return COLORS.warning.main;
-    return COLORS.error.main;
+    if (percentage >= 100) return COLORS.success.main;   // Green - Complete
+    if (percentage >= 75) return COLORS.primary.main;    // Purple - Almost there
+    if (percentage >= 50) return COLORS.warning.main;    // Yellow - Halfway
+    return COLORS.error.main;                            // Red - Just started
   },
 
   /**
    * Get color for level/tier
+   * Uses purple as the primary level color
    */
   getLevelColor: (level: number) => {
-    if (level >= 10) return COLORS.secondary.main;  // Master
-    if (level >= 7) return COLORS.primary.main;    // Expert
-    if (level >= 4) return COLORS.info.main;       // Intermediate
-    return COLORS.success.main;                    // Beginner
+    if (level >= 10) return COLORS.warning.main;   // Gold - Master
+    if (level >= 7) return COLORS.primary.main;    // Purple - Expert
+    if (level >= 4) return COLORS.success.main;    // Green - Intermediate
+    return COLORS.primary.light;                   // Light Purple - Beginner
   },
 
   /**
@@ -393,12 +392,21 @@ export const HELPERS = {
 // 🎨 GRADIENTS
 // ========================================
 
+/**
+ * Gradient combinations using only the 4 core colors
+ */
 export const GRADIENTS = {
+  // Single color gradients
   primary: `linear-gradient(135deg, ${COLORS.primary.main} 0%, ${COLORS.primary.dark} 100%)`,
   success: `linear-gradient(135deg, ${COLORS.success.main} 0%, ${COLORS.success.dark} 100%)`,
   warning: `linear-gradient(135deg, ${COLORS.warning.main} 0%, ${COLORS.warning.dark} 100%)`,
-  info: `linear-gradient(135deg, ${COLORS.info.main} 0%, ${COLORS.info.dark} 100%)`,
-  rainbow: `linear-gradient(135deg, ${COLORS.primary.main} 0%, ${COLORS.secondary.main} 100%)`,
+  error: `linear-gradient(135deg, ${COLORS.error.main} 0%, ${COLORS.error.dark} 100%)`,
+
+  // Multi-color combinations
+  level: `linear-gradient(135deg, ${COLORS.primary.main} 0%, ${COLORS.primary.dark} 100%)`,        // Purple
+  xp: `linear-gradient(135deg, ${COLORS.success.main} 0%, ${COLORS.success.dark} 100%)`,          // Green
+  gold: `linear-gradient(135deg, ${COLORS.warning.main} 0%, ${COLORS.warning.dark} 100%)`,        // Yellow
+  health: `linear-gradient(135deg, ${COLORS.error.main} 0%, ${COLORS.error.dark} 100%)`,          // Red
 } as const;
 
 // ========================================

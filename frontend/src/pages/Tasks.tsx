@@ -415,7 +415,7 @@ export default function Tasks() {
                             <Chip label={`+${task.reward.gold} Gold`} size="small" color="warning" />
                           )}
                           {task.reward.credits && (
-                            <Chip label={`+${task.reward.credits} Credits`} size="small" color="info" />
+                            <Chip label={`+${task.reward.credits} Credits`} size="small" color="primary" />
                           )}
                         </Box>
 

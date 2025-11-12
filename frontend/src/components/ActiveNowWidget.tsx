@@ -132,20 +132,20 @@ export default function ActiveNowWidget({
                   borderRadius: 2,
                   bgcolor: 'white',
                   border: '1px solid',
-                  borderColor: 'info.light',
+                  borderColor: 'primary.light',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
                   '&:hover': {
                     transform: 'translateY(-2px)',
                     boxShadow: 2,
-                    borderColor: 'info.main',
+                    borderColor: 'primary.main',
                   },
                 }}
                 onClick={() => navigate('/chores')}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <ChoreIcon sx={{ color: 'info.main' }} />
-                  <Typography variant="h4" fontWeight="bold" color="info.main">
+                  <ChoreIcon sx={{ color: 'primary.main' }} />
+                  <Typography variant="h4" fontWeight="bold" color="primary.main">
                     {choresDueCount}
                   </Typography>
                 </Box>
@@ -155,7 +155,7 @@ export default function ActiveNowWidget({
                 <Chip
                   label="Stay on track"
                   size="small"
-                  color="info"
+                  color="primary"
                   sx={{ mt: 1, fontWeight: 600 }}
                 />
               </Box>

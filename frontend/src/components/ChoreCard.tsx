@@ -180,7 +180,7 @@ export default function ChoreCard({ assignment, onComplete, onSwap }: ChoreCardP
                 icon={<CameraIcon />}
                 label="Photo Required"
                 size="small"
-                color="info"
+                color="primary"
                 variant="outlined"
               />
             )}

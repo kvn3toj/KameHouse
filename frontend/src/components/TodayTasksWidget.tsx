@@ -398,7 +398,7 @@ export default function TodayTasksWidget() {
                       <Chip
                         label={`+${task.reward.credits} Credits`}
                         size="small"
-                        sx={{ bgcolor: 'info.light', fontWeight: 600 }}
+                        sx={{ bgcolor: 'primary.light', fontWeight: 600 }}
                       />
                     )}
                   </Box>

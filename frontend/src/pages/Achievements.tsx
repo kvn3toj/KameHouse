@@ -279,7 +279,7 @@ export default function Achievements() {
                         <Chip
                           label={`+${achievement.gemsReward} Gems`}
                           size="small"
-                          color="secondary"
+                          color="primary"
                           variant={achievement.unlocked ? 'filled' : 'outlined'}
                         />
                       )}
