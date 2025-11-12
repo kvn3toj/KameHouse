@@ -775,9 +775,9 @@ export default function KameHouse() {
                 {showLetsInfo ? 'Hide' : 'Learn about LETS'}
               </Button>
               <Collapse in={showLetsInfo}>
-                <Card sx={{ bgcolor: 'info.light', border: '1px solid', borderColor: 'info.main' }}>
+                <Card sx={{ bgcolor: 'primary.light', border: '1px solid', borderColor: 'primary.main', opacity: 0.9 }}>
                   <CardContent>
-                    <Typography variant="h6" fontWeight={700} gutterBottom color="info.dark">
+                    <Typography variant="h6" fontWeight={700} gutterBottom color="primary.dark">
                       ℹ️ What is LETS?
                     </Typography>
                     <Typography variant="body2" paragraph>
