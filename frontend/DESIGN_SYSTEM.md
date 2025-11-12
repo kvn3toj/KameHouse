@@ -50,13 +50,13 @@ import { COLORS } from '@/components/ui';
 
 ### Available Colors
 
-- `COLORS.primary` - Main brand (Indigo)
-- `COLORS.secondary` - Accent (Pink)
-- `COLORS.success` - Green achievements
-- `COLORS.warning` - Amber attention
-- `COLORS.error` - Red errors
-- `COLORS.info` - Blue information
-- `COLORS.neutral` - Gray scale (50-900)
+**KameHouse uses ONLY 4 core colors** (from the Habits page):
+
+- `COLORS.primary` - Purple/Indigo (#6366F1) - Level, brand, primary actions
+- `COLORS.success` - Green (#10B981) - XP, achievements, completion
+- `COLORS.warning` - Yellow/Amber (#F59E0B) - Gold, streaks, attention
+- `COLORS.error` - Red (#EF4444) - Health, errors, critical states
+- `COLORS.neutral` - Gray scale (50-900) - Text and borders only
 
 Each color has variants:
 - `.main` - Primary shade
