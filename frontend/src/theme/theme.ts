@@ -15,39 +15,27 @@ export const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#6366F1', // Indigo - Focus, wisdom, progression
+      main: '#6366F1', // Purple/Indigo - Level, brand, primary actions
       light: '#818CF8',
       dark: '#4F46E5',
       contrastText: '#FFFFFF',
     },
-    secondary: {
-      main: '#EC4899', // Pink - Energy, motivation, celebration
-      light: '#F472B6',
-      dark: '#DB2777',
-      contrastText: '#FFFFFF',
-    },
     success: {
-      main: '#10B981', // Green - Growth, achievement, health
+      main: '#10B981', // Green - XP, achievements, completion
       light: '#34D399',
       dark: '#059669',
       contrastText: '#FFFFFF',
     },
     warning: {
-      main: '#F59E0B', // Amber - Attention, streaks, caution
+      main: '#F59E0B', // Yellow/Amber - Gold, streaks, attention
       light: '#FBBF24',
       dark: '#D97706',
       contrastText: '#FFFFFF',
     },
     error: {
-      main: '#EF4444', // Red - Critical, failure, streak break
+      main: '#EF4444', // Red - Health, errors, critical states
       light: '#F87171',
       dark: '#DC2626',
-      contrastText: '#FFFFFF',
-    },
-    info: {
-      main: '#3B82F6', // Blue - Information, calm
-      light: '#60A5FA',
-      dark: '#2563EB',
       contrastText: '#FFFFFF',
     },
     background: {
