@@ -9,7 +9,7 @@ export interface BalanceFeedback {
   title: string;
   message: string;
   callToAction: string;
-  color: 'error' | 'warning' | 'success' | 'info';
+  color: 'error' | 'warning' | 'success' | 'primary';
   intensity: 'low' | 'medium' | 'high';
 }
 
@@ -85,7 +85,7 @@ export function getBalanceFeedback(balance: number): BalanceFeedback {
       title: 'Strong Contributor',
       message: 'You\'ve given a lot! Don\'t hesitate to ask for help - you\'ve earned it.',
       callToAction: 'Request Help',
-      color: 'info',
+      color: 'primary',
       intensity: 'medium',
     };
   }
@@ -96,7 +96,7 @@ export function getBalanceFeedback(balance: number): BalanceFeedback {
     title: 'Community Pillar',
     message: 'You\'re a household hero! Time to receive - your family wants to support you too.',
     callToAction: 'It\'s OK to Ask for Help',
-    color: 'info',
+    color: 'primary',
     intensity: 'high',
   };
 }

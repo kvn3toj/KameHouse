@@ -10,7 +10,7 @@ interface StatCardProps extends CardProps {
     value: number;
     label?: string;
   };
-  color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info';
+  color?: 'primary' | 'success' | 'warning' | 'error';
   onClick?: () => void;
 }
 

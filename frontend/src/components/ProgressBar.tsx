@@ -4,7 +4,7 @@ interface ProgressBarProps {
   current: number;
   max: number;
   label: string;
-  color?: 'primary' | 'secondary' | 'success' | 'error' | 'warning';
+  color?: 'primary' | 'success' | 'error' | 'warning';
 }
 
 export default function ProgressBar({ current, max, label, color = 'primary' }: ProgressBarProps) {
