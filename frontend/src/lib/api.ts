@@ -1,5 +1,6 @@
-// Hardcode for now since import.meta.env isn't working reliably
-const API_URL = 'http://localhost:3000/api';
+import { API_BASE_URL } from '@/config/api.config';
+
+const API_URL = API_BASE_URL;
 
 class ApiClient {
   private baseURL: string;

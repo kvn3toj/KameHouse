@@ -373,43 +373,6 @@ export default function Dashboard() {
         <Box sx={{ mb: 3 }}>
           <TodayHabits key={refreshKey} onComplete={handleComplete} onUpdate={handleUpdate} />
         </Box>
-
-        {/* Quick Actions */}
-        <Grid container spacing={3}>
-          <Grid item xs={12} sm={6} md={4}>
-            <Button
-              variant="outlined"
-              fullWidth
-              size="large"
-              onClick={() => navigate('/habits')}
-              sx={{ py: 2 }}
-            >
-              Manage Habits
-            </Button>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Button
-              variant="outlined"
-              fullWidth
-              size="large"
-              onClick={() => navigate('/achievements')}
-              sx={{ py: 2 }}
-            >
-              View Achievements
-            </Button>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Button
-              variant="outlined"
-              fullWidth
-              size="large"
-              onClick={() => navigate('/family')}
-              sx={{ py: 2 }}
-            >
-              Family Household
-            </Button>
-          </Grid>
-        </Grid>
       </Box>
 
       <Snackbar

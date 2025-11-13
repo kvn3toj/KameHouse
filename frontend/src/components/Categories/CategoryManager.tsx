@@ -67,12 +67,12 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   const loadCategories = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/categories?householdId=${householdId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCategories(response.data);
+      const response = await api.get(`/categories?householdId=${householdId}`);
+      // api.get returns data directly, not wrapped in { data: ... }
+      setCategories(Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Failed to load categories:', error);
+      setCategories([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -107,15 +107,11 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   const handleSubmit = async () => {
     try {
       if (editingCategory) {
-        await api.patch(`/categories/${editingCategory.id}`, formData, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await api.patch(`/categories/${editingCategory.id}`, formData);
       } else {
         await api.post('/categories', {
           ...formData,
           householdId,
-        }, {
-          headers: { Authorization: `Bearer ${token}` },
         });
       }
       loadCategories();
@@ -131,9 +127,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
     }
 
     try {
-      await api.delete(`/categories/${categoryId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/categories/${categoryId}`);
       loadCategories();
     } catch (error) {
       console.error('Failed to delete category:', error);

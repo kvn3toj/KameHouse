@@ -33,7 +33,6 @@ import {
   Star as StarIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
-import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 
 interface RoomTemplate {
@@ -61,7 +60,6 @@ export const RoomTemplatesLibrary: React.FC<RoomTemplatesLibraryProps> = ({
   householdId,
   onTemplateApplied,
 }) => {
-  const { token } = useAuth();
   const [templates, setTemplates] = useState<RoomTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
@@ -79,12 +77,11 @@ export const RoomTemplatesLibrary: React.FC<RoomTemplatesLibraryProps> = ({
   const loadTemplates = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/room-templates', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setTemplates(response.data);
+      const response = await api.get('/room-templates');
+      setTemplates(Array.isArray(response) ? response : []);
     } catch (error) {
       console.error('Failed to load templates:', error);
+      setTemplates([]);
     } finally {
       setLoading(false);
     }
@@ -96,9 +93,7 @@ export const RoomTemplatesLibrary: React.FC<RoomTemplatesLibraryProps> = ({
     }
 
     try {
-      await api.delete(`/room-templates/${templateId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/room-templates/${templateId}`);
       loadTemplates();
     } catch (error) {
       console.error('Failed to delete template:', error);
@@ -119,23 +114,20 @@ export const RoomTemplatesLibrary: React.FC<RoomTemplatesLibraryProps> = ({
     try {
       const response = await api.post(
         `/room-templates/${selectedTemplate.id}/apply`,
-        { householdId },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { householdId }
       );
 
       setApplyResult({
         success: true,
-        room: response.data,
-        message: `Successfully created "${response.data.name}" with ${response.data.choreTemplates?.length || 0} tasks!`,
+        room: response,
+        message: `Successfully created "${response.name}" with ${response.choreTemplates?.length || 0} tasks!`,
       });
 
       // Reload templates to update use count
       loadTemplates();
 
       // Notify parent component
-      onTemplateApplied?.(response.data.id);
+      onTemplateApplied?.(response.id);
     } catch (error: any) {
       console.error('Failed to apply template:', error);
       setApplyResult({

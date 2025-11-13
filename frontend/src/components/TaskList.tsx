@@ -18,6 +18,12 @@ import {
   Select,
   FormControl,
   InputLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Slider,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -88,6 +94,8 @@ export default function TaskList({ roomId, householdId, onTaskComplete, onAddTas
     taskId: null,
   });
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   useEffect(() => {
     loadTasks();
@@ -129,6 +137,37 @@ export default function TaskList({ roomId, householdId, onTaskComplete, onAddTas
       setError(err.message || 'Error al cargar tareas');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setEditDialogOpen(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    setEditingTask(null);
+  };
+
+  const handleSaveTask = async () => {
+    if (!editingTask) return;
+
+    try {
+      await roomsApi.updateTask(roomId, editingTask.id, {
+        title: editingTask.title,
+        description: editingTask.description,
+        icon: editingTask.icon,
+        difficulty: editingTask.difficulty,
+        estimatedTime: editingTask.estimatedTime,
+        xpReward: editingTask.xpReward,
+        goldReward: editingTask.goldReward,
+        frequency: editingTask.frequency,
+      });
+      await loadTasks();
+      handleCloseEditDialog();
+    } catch (err: any) {
+      setError(err.message || 'Error al actualizar tarea');
     }
   };
 
@@ -329,7 +368,7 @@ export default function TaskList({ roomId, householdId, onTaskComplete, onAddTas
                           {task.title}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 1 }}>
-                          <IconButton size="small" color="primary">
+                          <IconButton size="small" color="primary" onClick={() => handleEditTask(task)}>
                             <EditIcon fontSize="small" />
                           </IconButton>
                           <IconButton size="small" color="error" onClick={() => handleDeleteTask(task.id)}>
@@ -458,6 +497,75 @@ export default function TaskList({ roomId, householdId, onTaskComplete, onAddTas
           </MenuItem>
         ))}
       </Menu>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={editDialogOpen} onClose={handleCloseEditDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Editar Tarea</DialogTitle>
+        <DialogContent>
+          {editingTask && (
+            <Stack spacing={3} sx={{ mt: 2 }}>
+              <TextField
+                label="Título"
+                fullWidth
+                value={editingTask.title}
+                onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+              />
+              <TextField
+                label="Descripción"
+                fullWidth
+                multiline
+                rows={3}
+                value={editingTask.description || ''}
+                onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
+              />
+              <TextField
+                label="Icono"
+                fullWidth
+                value={editingTask.icon}
+                onChange={(e) => setEditingTask({ ...editingTask, icon: e.target.value })}
+              />
+              <Box>
+                <Typography gutterBottom>Dificultad: {editingTask.difficulty}/5</Typography>
+                <Slider
+                  value={editingTask.difficulty}
+                  onChange={(_, value) => setEditingTask({ ...editingTask, difficulty: value as number })}
+                  min={1}
+                  max={5}
+                  marks
+                  valueLabelDisplay="auto"
+                />
+              </Box>
+              <TextField
+                label="Tiempo Estimado (minutos)"
+                type="number"
+                fullWidth
+                value={editingTask.estimatedTime || ''}
+                onChange={(e) => setEditingTask({ ...editingTask, estimatedTime: parseInt(e.target.value) || 0 })}
+              />
+              <TextField
+                label="Recompensa XP"
+                type="number"
+                fullWidth
+                value={editingTask.xpReward}
+                onChange={(e) => setEditingTask({ ...editingTask, xpReward: parseInt(e.target.value) || 0 })}
+              />
+              <TextField
+                label="Recompensa Gold"
+                type="number"
+                fullWidth
+                value={editingTask.goldReward}
+                onChange={(e) => setEditingTask({ ...editingTask, goldReward: parseInt(e.target.value) || 0 })}
+              />
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseEditDialog}>Cancelar</Button>
+          <Button onClick={handleSaveTask} variant="contained">
+            Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

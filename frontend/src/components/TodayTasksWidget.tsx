@@ -24,17 +24,20 @@ import { habitsApi } from '@/lib/habits-api';
 import { getMyChores } from '@/lib/chores-api';
 import { transactionsApi } from '@/lib/transactions-api';
 import { householdApi } from '@/lib/household-api';
+import { roomsApi } from '@/lib/rooms-api';
 import type { Habit } from '@/types/habit';
 import type { ChoreAssignment } from '@/lib/chores-api';
 import type { Transaction } from '@/types/transaction';
 
 interface AggregatedTask {
   id: string;
-  type: 'habit' | 'chore' | 'favor';
+  type: 'habit' | 'chore' | 'favor' | 'room-task';
   title: string;
   description?: string;
   urgency: 'high' | 'medium' | 'low';
   dueInfo?: string;
+  roomName?: string;
+  isAssigned?: boolean;
   reward: {
     xp?: number;
     gold?: number;
@@ -63,7 +66,7 @@ export default function TodayTasksWidget() {
       setLoading(true);
       setError(null);
 
-      // Load habits, chores, and favors in parallel
+      // Load habits, chores, household, and rooms in parallel
       const [habits, chores, household] = await Promise.all([
         habitsApi.getAll().catch(() => []),
         getMyChores().catch(() => []),
@@ -71,12 +74,32 @@ export default function TodayTasksWidget() {
       ]);
 
       let transactions: Transaction[] = [];
+      let rooms: any[] = [];
+      let roomTasks: any[] = [];
+
       if (household) {
-        transactions = await transactionsApi.getAll(household.id).catch(() => []);
+        // Load transactions and rooms
+        const [trans, houseRooms] = await Promise.all([
+          transactionsApi.getAll(household.id).catch(() => []),
+          roomsApi.findByHousehold(household.id).catch(() => []),
+        ]);
+        transactions = trans;
+        rooms = houseRooms;
+
+        // Load tasks from all rooms
+        const roomTasksPromises = rooms.map((room) =>
+          roomsApi.getRoomTasks(room.id).catch(() => [])
+        );
+        const roomTasksArrays = await Promise.all(roomTasksPromises);
+
+        // Flatten and attach room names
+        roomTasks = roomTasksArrays.flatMap((tasks, index) =>
+          tasks.map((task: any) => ({ ...task, roomName: rooms[index].name }))
+        );
       }
 
       // Aggregate and prioritize tasks
-      const aggregated = aggregateTasks(habits, chores, transactions);
+      const aggregated = aggregateTasks(habits, chores, transactions, roomTasks);
       setTasks(aggregated);
     } catch (err) {
       console.error('Failed to load tasks:', err);
@@ -89,13 +112,20 @@ export default function TodayTasksWidget() {
   const aggregateTasks = (
     habits: Habit[],
     chores: ChoreAssignment[],
-    transactions: Transaction[]
+    transactions: Transaction[],
+    roomTasks: any[]
   ): AggregatedTask[] => {
     const now = new Date();
     const aggregated: AggregatedTask[] = [];
 
+    // Safety check - ensure all inputs are arrays
+    const safeHabits = Array.isArray(habits) ? habits : [];
+    const safeChores = Array.isArray(chores) ? chores : [];
+    const safeTransactions = Array.isArray(transactions) ? transactions : [];
+    const safeRoomTasks = Array.isArray(roomTasks) ? roomTasks : [];
+
     // Add today's incomplete habits
-    const todayHabits = habits.filter((habit) => {
+    const todayHabits = safeHabits.filter((habit) => {
       // Only show habits not completed today
       if (habit.completedToday) return false;
       return true;
@@ -121,7 +151,7 @@ export default function TodayTasksWidget() {
     });
 
     // Add incomplete chores
-    const activeChores = chores.filter((chore) => !chore.isCompleted);
+    const activeChores = safeChores.filter((chore) => !chore.isCompleted && chore.template);
     activeChores.forEach((chore) => {
       const dueDate = new Date(chore.dueDate);
       const hoursUntilDue = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60);
@@ -137,16 +167,16 @@ export default function TodayTasksWidget() {
             ? `⏰ Due in ${Math.floor(hoursUntilDue)}h`
             : `Due ${dueDate.toLocaleDateString()}`,
         reward: {
-          xp: chore.template.xpReward,
-          gold: chore.template.goldReward,
-          credits: chore.template.letsCredit,
+          xp: chore.template.xpReward || 0,
+          gold: chore.template.goldReward || 0,
+          credits: chore.template.letsCredit || 0,
         },
         metadata: chore,
       });
     });
 
     // Add available favors (not assigned to user)
-    const availableFavors = transactions.filter((t) => t.canAccept);
+    const availableFavors = safeTransactions.filter((t) => t.canAccept);
     availableFavors.slice(0, 2).forEach((favor) => {
       // Only show top 2 to avoid overwhelming
       aggregated.push({
@@ -163,11 +193,35 @@ export default function TodayTasksWidget() {
       });
     });
 
+    // Add room tasks (show both assigned and unassigned)
+    safeRoomTasks.forEach((task) => {
+      const isAssigned = task.assignments && task.assignments.length > 0;
+      const assignedUser = isAssigned ? task.assignments[0].user : null;
+
+      aggregated.push({
+        id: task.id,
+        type: 'room-task',
+        title: task.title,
+        description: task.description,
+        urgency: isAssigned ? 'medium' : 'low',
+        dueInfo: isAssigned
+          ? `Assigned to ${assignedUser.displayName || assignedUser.username}`
+          : '🆓 Available to claim',
+        roomName: task.roomName,
+        isAssigned,
+        reward: {
+          xp: task.xpReward,
+          gold: task.goldReward,
+        },
+        metadata: task,
+      });
+    });
+
     // Sort by urgency: high → medium → low
     const urgencyOrder = { high: 0, medium: 1, low: 2 };
     aggregated.sort((a, b) => urgencyOrder[a.urgency] - urgencyOrder[b.urgency]);
 
-    return aggregated.slice(0, 5); // Show top 5 tasks
+    return aggregated.slice(0, 10); // Show top 10 tasks
   };
 
   const handleTaskAction = async (task: AggregatedTask) => {
@@ -183,8 +237,10 @@ export default function TodayTasksWidget() {
         return <ChoreIcon />;
       case 'favor':
         return <FavorIcon />;
+      case 'room-task':
+        return <ChoreIcon />;
       default:
-        return <CheckCircle />;
+        return <HabitIcon />;
     }
   };
 
@@ -361,6 +417,14 @@ export default function TodayTasksWidget() {
                   <Typography variant="h6" fontWeight={600} gutterBottom>
                     {task.title}
                   </Typography>
+
+                  {task.roomName && (
+                    <Chip
+                      label={`📍 ${task.roomName}`}
+                      size="small"
+                      sx={{ mb: 1, bgcolor: 'primary.light', color: 'primary.contrastText' }}
+                    />
+                  )}
 
                   {task.description && (
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>

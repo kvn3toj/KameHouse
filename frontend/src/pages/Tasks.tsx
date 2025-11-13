@@ -28,6 +28,7 @@ import { habitsApi } from '@/lib/habits-api';
 import { getMyChores } from '@/lib/chores-api';
 import { transactionsApi } from '@/lib/transactions-api';
 import { householdApi } from '@/lib/household-api';
+import { roomsApi } from '@/lib/rooms-api';
 import { achievementsApi } from '@/lib/achievements-api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -37,11 +38,13 @@ import type { Transaction } from '@/types/transaction';
 
 interface AggregatedTask {
   id: string;
-  type: 'habit' | 'chore' | 'favor';
+  type: 'habit' | 'chore' | 'favor' | 'room-task';
   title: string;
   description?: string;
   urgency: 'high' | 'medium' | 'low';
   dueInfo?: string;
+  roomName?: string;
+  isAssigned?: boolean;
   reward: {
     xp?: number;
     gold?: number;
@@ -85,12 +88,33 @@ export default function Tasks() {
       ]);
 
       let transactions: Transaction[] = [];
+      let rooms: any[] = [];
+      let roomTasks: any[] = [];
+
       if (household) {
         setHouseholdId(household.id);
-        transactions = await transactionsApi.getAll(household.id).catch(() => []);
+
+        // Load transactions and rooms
+        const [trans, houseRooms] = await Promise.all([
+          transactionsApi.getAll(household.id).catch(() => []),
+          roomsApi.findByHousehold(household.id).catch(() => []),
+        ]);
+        transactions = trans;
+        rooms = houseRooms;
+
+        // Load tasks from all rooms
+        const roomTasksPromises = rooms.map((room) =>
+          roomsApi.getRoomTasks(room.id).catch(() => [])
+        );
+        const roomTasksArrays = await Promise.all(roomTasksPromises);
+
+        // Flatten and attach room names
+        roomTasks = roomTasksArrays.flatMap((tasks, index) =>
+          tasks.map((task: any) => ({ ...task, roomName: rooms[index].name }))
+        );
       }
 
-      const aggregated = aggregateTasks(habits, chores, transactions);
+      const aggregated = aggregateTasks(habits, chores, transactions, roomTasks);
       setTasks(aggregated);
     } catch (err) {
       console.error('Failed to load tasks:', err);
@@ -103,7 +127,8 @@ export default function Tasks() {
   const aggregateTasks = (
     habits: Habit[],
     chores: ChoreAssignment[],
-    transactions: Transaction[]
+    transactions: Transaction[],
+    roomTasks: any[]
   ): AggregatedTask[] => {
     const now = new Date();
     const aggregated: AggregatedTask[] = [];
@@ -180,6 +205,31 @@ export default function Tasks() {
       });
     });
 
+    // Add room tasks (show both assigned and unassigned)
+    roomTasks.forEach((task) => {
+      const isAssigned = task.assignments && task.assignments.length > 0;
+      const assignedUser = isAssigned ? task.assignments[0].user : null;
+
+      aggregated.push({
+        id: task.id,
+        type: 'room-task',
+        title: task.title,
+        description: task.description,
+        urgency: isAssigned ? 'medium' : 'low',
+        dueInfo: isAssigned
+          ? `Assigned to ${assignedUser.displayName || assignedUser.username}`
+          : '🆓 Available to claim',
+        roomName: task.roomName,
+        isAssigned,
+        reward: {
+          xp: task.xpReward,
+          gold: task.goldReward,
+        },
+        metadata: task,
+        isCompleted: false, // Room tasks don't track completion in this view
+      });
+    });
+
     // Sort by completion status first, then urgency
     const urgencyOrder = { high: 0, medium: 1, low: 2 };
     aggregated.sort((a, b) => {
@@ -199,6 +249,7 @@ export default function Tasks() {
     if (activeTab === 1) return tasks.filter((t) => t.type === 'habit');
     if (activeTab === 2) return tasks.filter((t) => t.type === 'chore');
     if (activeTab === 3) return tasks.filter((t) => t.type === 'favor');
+    if (activeTab === 4) return tasks.filter((t) => t.type === 'room-task');
     return tasks;
   };
 
@@ -259,6 +310,8 @@ export default function Tasks() {
         return <ChoreIcon />;
       case 'favor':
         return <FavorIcon />;
+      case 'room-task':
+        return <ChoreIcon />;
       default:
         return <HabitIcon />;
     }
@@ -321,6 +374,10 @@ export default function Tasks() {
             label={`${tasks.filter((t) => t.type === 'favor').length} Favors`}
             variant="outlined"
           />
+          <Chip
+            label={`${tasks.filter((t) => t.type === 'room-task').length} Room Tasks`}
+            variant="outlined"
+          />
         </Box>
 
         {/* Filter Tabs */}
@@ -330,6 +387,7 @@ export default function Tasks() {
             <Tab label="Habits" />
             <Tab label="Chores" />
             <Tab label="Favors" />
+            <Tab label="Room Tasks" />
           </Tabs>
         </Box>
 
@@ -391,6 +449,14 @@ export default function Tasks() {
                         <Typography variant="h6" fontWeight={600} gutterBottom>
                           {task.title}
                         </Typography>
+
+                        {task.roomName && (
+                          <Chip
+                            label={`📍 ${task.roomName}`}
+                            size="small"
+                            sx={{ mb: 1, bgcolor: 'primary.light', color: 'primary.contrastText' }}
+                          />
+                        )}
 
                         {task.description && (
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -460,6 +526,17 @@ export default function Tasks() {
                             onClick={() => navigate('/kamehouse')}
                           >
                             Go to Family Hub
+                          </Button>
+                        )}
+
+                        {task.type === 'room-task' && (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            fullWidth
+                            onClick={() => navigate('/kamehouse')}
+                          >
+                            Go to Room
                           </Button>
                         )}
                       </CardContent>
