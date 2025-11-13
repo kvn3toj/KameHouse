@@ -12,8 +12,7 @@ import {
   FilterList as FilterIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthContext';
-import { api } from '../../services/api';
+import { api } from '@/lib/api';
 
 interface Tag {
   id: string;
@@ -34,7 +33,6 @@ export const TagFilter: React.FC<TagFilterProps> = ({
   onChange,
   showHeader = true,
 }) => {
-  const { token } = useAuth();
   const [tags, setTags] = useState<Tag[]>([]);
   const [expanded, setExpanded] = useState(true);
 
@@ -44,10 +42,8 @@ export const TagFilter: React.FC<TagFilterProps> = ({
 
   const loadTags = async () => {
     try {
-      const response = await api.get(`/tags?householdId=${householdId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setTags(response.data);
+      const fetchedTags = await api.get<Tag[]>(`/tags?householdId=${householdId}`);
+      setTags(fetchedTags || []);
     } catch (error) {
       console.error('Failed to load tags:', error);
     }

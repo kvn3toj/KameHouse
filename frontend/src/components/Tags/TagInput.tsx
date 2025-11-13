@@ -12,8 +12,7 @@ import {
   DialogActions,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthContext';
-import { api } from '../../services/api';
+import { api } from '@/lib/api';
 
 interface Tag {
   id: string;
@@ -34,7 +33,6 @@ export const TagInput: React.FC<TagInputProps> = ({
   onChange,
   label = 'Tags',
 }) => {
-  const { token } = useAuth();
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newTagName, setNewTagName] = useState('');
@@ -46,10 +44,8 @@ export const TagInput: React.FC<TagInputProps> = ({
 
   const loadTags = async () => {
     try {
-      const response = await api.get(`/tags?householdId=${householdId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setAvailableTags(response.data);
+      const tags = await api.get<Tag[]>(`/tags?householdId=${householdId}`);
+      setAvailableTags(tags || []);
     } catch (error) {
       console.error('Failed to load tags:', error);
     }
@@ -59,16 +55,14 @@ export const TagInput: React.FC<TagInputProps> = ({
     if (!newTagName.trim()) return;
 
     try {
-      const response = await api.post('/tags', {
+      const newTag = await api.post<Tag>('/tags', {
         householdId,
         name: newTagName,
         color: newTagColor,
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
       });
 
-      setAvailableTags([...availableTags, response.data]);
-      onChange([...selectedTags, response.data]);
+      setAvailableTags([...availableTags, newTag]);
+      onChange([...selectedTags, newTag]);
       setCreateDialogOpen(false);
       setNewTagName('');
       setNewTagColor('#6b7280');

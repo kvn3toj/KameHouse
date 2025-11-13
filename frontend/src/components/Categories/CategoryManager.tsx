@@ -25,7 +25,6 @@ import {
   Delete as DeleteIcon,
   DragIndicator as DragIcon,
 } from '@mui/icons-material';
-import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 
 interface Category {
@@ -50,7 +49,6 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   householdId,
   onCategorySelect,
 }) => {
-  const { token } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
