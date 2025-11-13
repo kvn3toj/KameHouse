@@ -266,10 +266,31 @@ export class RoomsService {
   async getRoomTasks(roomId: string) {
     const room = await this.findOne(roomId);
 
+    // Get current week's start date
+    const now = new Date();
+    const weekStarting = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+
     const tasks = await this.prisma.choreTemplate.findMany({
       where: {
         roomId,
         isActive: true,
+      },
+      include: {
+        assignments: {
+          where: {
+            weekStarting,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                displayName: true,
+                avatar: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',

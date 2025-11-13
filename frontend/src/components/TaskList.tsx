@@ -10,16 +10,42 @@ import {
   Alert,
   CircularProgress,
   Button,
+  Avatar,
+  ToggleButtonGroup,
+  ToggleButton,
+  Menu,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   CheckCircle as CheckIcon,
   Add as AddIcon,
+  Person as PersonIcon,
+  PersonAdd as PersonAddIcon,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { roomsApi } from '@/lib/rooms-api';
 import { TagFilter } from '@/components/Tags/TagFilter';
+import { api } from '@/lib/api';
+
+interface User {
+  id: string;
+  username: string;
+  displayName?: string;
+  avatar?: string;
+}
+
+interface Assignment {
+  id: string;
+  assignedTo: string;
+  user: User;
+  isCompleted: boolean;
+  weekStarting: string;
+}
 
 interface Task {
   id: string;
@@ -32,6 +58,7 @@ interface Task {
   goldReward: number;
   frequency: string;
   isActive: boolean;
+  assignments?: Assignment[];
 }
 
 interface TaskListProps {
@@ -41,15 +68,56 @@ interface TaskListProps {
   onAddTask?: () => void;
 }
 
+interface HouseholdMember {
+  userId: string;
+  username: string;
+  displayName?: string;
+  avatar?: string;
+}
+
 export default function TaskList({ roomId, householdId, onTaskComplete, onAddTask }: TaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<'all' | 'mine'>('all');
+  const [selectedAssigneeFilter, setSelectedAssigneeFilter] = useState<string>('all');
+  const [householdMembers, setHouseholdMembers] = useState<HouseholdMember[]>([]);
+  const [reassignMenuAnchor, setReassignMenuAnchor] = useState<{ element: HTMLElement | null; taskId: string | null }>({
+    element: null,
+    taskId: null,
+  });
+  const [currentUserId, setCurrentUserId] = useState<string>('');
 
   useEffect(() => {
     loadTasks();
-  }, [roomId]);
+    loadCurrentUser();
+    if (householdId) {
+      loadHouseholdMembers();
+    }
+  }, [roomId, householdId]);
+
+  const loadCurrentUser = () => {
+    const authUser = localStorage.getItem('auth_user');
+    if (authUser) {
+      try {
+        const user = JSON.parse(authUser);
+        setCurrentUserId(user.id);
+      } catch (err) {
+        console.error('Failed to parse auth_user:', err);
+      }
+    }
+  };
+
+  const loadHouseholdMembers = async () => {
+    if (!householdId) return;
+    try {
+      const response = await api.get<{ members: HouseholdMember[] }>(`/household/${householdId}`);
+      setHouseholdMembers(response.members || []);
+    } catch (err) {
+      console.error('Failed to load household members:', err);
+    }
+  };
 
   const loadTasks = async () => {
     try {
@@ -73,6 +141,53 @@ export default function TaskList({ roomId, householdId, onTaskComplete, onAddTas
     } catch (err: any) {
       setError(err.message || 'Error al eliminar tarea');
     }
+  };
+
+  const handleReassignTask = async (taskId: string, newAssigneeId: string) => {
+    try {
+      // Get the current week's start date
+      const now = new Date();
+      const weekStarting = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+
+      // Create assignment via backend API
+      await api.post('/chores/assign/' + householdId, {
+        assignments: [{
+          choreId: taskId,
+          userId: newAssigneeId,
+          weekStarting: weekStarting.toISOString(),
+        }],
+      });
+
+      // Reload tasks to reflect changes
+      await loadTasks();
+      setReassignMenuAnchor({ element: null, taskId: null });
+    } catch (err: any) {
+      setError(err.message || 'Error al reasignar tarea');
+    }
+  };
+
+  const getFilteredTasks = () => {
+    let filtered = tasks;
+
+    // Filter by "My Tasks" view
+    if (viewMode === 'mine' && currentUserId) {
+      filtered = filtered.filter((task) =>
+        task.assignments?.some((a) => a.assignedTo === currentUserId)
+      );
+    }
+
+    // Filter by specific assignee
+    if (selectedAssigneeFilter !== 'all') {
+      if (selectedAssigneeFilter === 'unassigned') {
+        filtered = filtered.filter((task) => !task.assignments || task.assignments.length === 0);
+      } else {
+        filtered = filtered.filter((task) =>
+          task.assignments?.some((a) => a.assignedTo === selectedAssigneeFilter)
+        );
+      }
+    }
+
+    return filtered;
   };
 
   const getFrequencyLabel = (frequency: string) => {
@@ -128,6 +243,8 @@ export default function TaskList({ roomId, householdId, onTaskComplete, onAddTas
     );
   }
 
+  const filteredTasks = getFilteredTasks();
+
   return (
     <Box>
       {error && (
@@ -135,6 +252,40 @@ export default function TaskList({ roomId, householdId, onTaskComplete, onAddTas
           {error}
         </Alert>
       )}
+
+      {/* View Mode Toggle & Filters */}
+      <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* My Tasks / All Tasks Toggle */}
+        <ToggleButtonGroup
+          value={viewMode}
+          exclusive
+          onChange={(e, newMode) => newMode && setViewMode(newMode)}
+          size="small"
+        >
+          <ToggleButton value="all">Todas las Tareas</ToggleButton>
+          <ToggleButton value="mine">Mis Tareas</ToggleButton>
+        </ToggleButtonGroup>
+
+        {/* Assignee Filter */}
+        {householdMembers.length > 0 && (
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Filtrar por Responsable</InputLabel>
+            <Select
+              value={selectedAssigneeFilter}
+              onChange={(e) => setSelectedAssigneeFilter(e.target.value)}
+              label="Filtrar por Responsable"
+            >
+              <MenuItem value="all">Todos</MenuItem>
+              <MenuItem value="unassigned">Sin Asignar</MenuItem>
+              {householdMembers.map((member) => (
+                <MenuItem key={member.userId} value={member.userId}>
+                  {member.displayName || member.username}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+      </Box>
 
       {/* Tag Filter */}
       {householdId && (
@@ -149,7 +300,7 @@ export default function TaskList({ roomId, householdId, onTaskComplete, onAddTas
 
       <Stack spacing={2}>
         <AnimatePresence>
-          {tasks.map((task, index) => (
+          {filteredTasks.map((task, index) => (
             <motion.div
               key={task.id}
               initial={{ opacity: 0, y: 20 }}
@@ -191,6 +342,45 @@ export default function TaskList({ roomId, householdId, onTaskComplete, onAddTas
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                           {task.description}
                         </Typography>
+                      )}
+
+                      {/* Assigned Person */}
+                      {task.assignments && task.assignments.length > 0 && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                          <PersonIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {task.assignments[0].user.avatar && (
+                              <Avatar
+                                src={task.assignments[0].user.avatar}
+                                sx={{ width: 24, height: 24 }}
+                              />
+                            )}
+                            <Typography variant="body2" color="text.secondary">
+                              Asignado a: {task.assignments[0].user.displayName || task.assignments[0].user.username}
+                            </Typography>
+                          </Box>
+                          {householdMembers.length > 0 && (
+                            <IconButton
+                              size="small"
+                              onClick={(e) => setReassignMenuAnchor({ element: e.currentTarget, taskId: task.id })}
+                            >
+                              <PersonAddIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Box>
+                      )}
+                      {(!task.assignments || task.assignments.length === 0) && householdMembers.length > 0 && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Sin asignar
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => setReassignMenuAnchor({ element: e.currentTarget, taskId: task.id })}
+                          >
+                            <PersonAddIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
                       )}
 
                       {/* Chips */}
@@ -238,6 +428,36 @@ export default function TaskList({ roomId, householdId, onTaskComplete, onAddTas
           ))}
         </AnimatePresence>
       </Stack>
+
+      {/* Reassignment Menu */}
+      <Menu
+        anchorEl={reassignMenuAnchor.element}
+        open={Boolean(reassignMenuAnchor.element)}
+        onClose={() => setReassignMenuAnchor({ element: null, taskId: null })}
+      >
+        <MenuItem disabled>
+          <Typography variant="caption" color="text.secondary">
+            Asignar a:
+          </Typography>
+        </MenuItem>
+        {householdMembers.map((member) => (
+          <MenuItem
+            key={member.userId}
+            onClick={() => {
+              if (reassignMenuAnchor.taskId) {
+                handleReassignTask(reassignMenuAnchor.taskId, member.userId);
+              }
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {member.avatar && (
+                <Avatar src={member.avatar} sx={{ width: 24, height: 24 }} />
+              )}
+              <Typography>{member.displayName || member.username}</Typography>
+            </Box>
+          </MenuItem>
+        ))}
+      </Menu>
     </Box>
   );
 }
