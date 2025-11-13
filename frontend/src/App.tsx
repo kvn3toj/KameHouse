@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import Layout from '@/components/Layout';
 import WelcomeModal from '@/components/WelcomeModal';
+import Landing from '@/pages/Landing';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Dashboard from '@/pages/Dashboard';
@@ -14,6 +15,10 @@ import Marketplace from '@/pages/Marketplace';
 import Chores from '@/pages/Chores';
 import BulletinBoard from '@/pages/BulletinBoard';
 import Tasks from '@/pages/Tasks';
+import KameHouse from '@/pages/KameHouse';
+import RoomDashboard from '@/pages/RoomDashboard';
+import NotificationSettings from '@/pages/NotificationSettings';
+import HouseholdSettings from '@/pages/HouseholdSettings';
 import { householdApi } from '@/lib/household-api';
 
 function AppContent() {
@@ -61,10 +66,11 @@ function AppContent() {
   return (
     <>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Landing />} />
+        <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+        <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <Register />} />
         <Route
-          path="/"
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <Layout>
@@ -113,10 +119,25 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
-        {/* Legacy redirect for backward compatibility */}
         <Route
           path="/kamehouse"
-          element={<Navigate to="/templo" replace />}
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <KameHouse />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rooms/:roomId"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <RoomDashboard />
+              </Layout>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/marketplace"
@@ -148,7 +169,27 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route
+          path="/settings/notifications"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <NotificationSettings />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/household"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <HouseholdSettings />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/"} replace />} />
       </Routes>
 
       {/* Welcome Modal for first-time users */}

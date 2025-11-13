@@ -13,6 +13,7 @@ import ProgressBar from '@/components/ProgressBar';
 import HelpDrawer from '@/components/HelpDrawer';
 import QuestCard from '@/components/QuestCard';
 import TodayTasksWidget from '@/components/TodayTasksWidget';
+import OnboardingFlow from '@/components/onboarding/OnboardingFlow';
 import type { UserQuest } from '@/types/quest';
 import type { Household } from '@/types/household';
 
@@ -24,6 +25,7 @@ export default function Dashboard() {
   const [quests, setQuests] = useState<UserQuest[]>([]);
   const [loadingQuests, setLoadingQuests] = useState(true);
   const [household, setHousehold] = useState<Household | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -33,6 +35,15 @@ export default function Dashboard() {
   useEffect(() => {
     loadQuests();
     loadHousehold();
+
+    // Check if household was just created
+    const justCreated = localStorage.getItem('household-just-created');
+    const onboardingComplete = localStorage.getItem('kh_onboarding_complete');
+
+    if (justCreated === 'true' && onboardingComplete !== 'true') {
+      setShowOnboarding(true);
+      localStorage.removeItem('household-just-created');
+    }
   }, []);
 
   const loadHousehold = async () => {
@@ -98,6 +109,16 @@ export default function Dashboard() {
 
   const handleUpdate = () => {
     setRefreshKey((prev) => prev + 1);
+  };
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    loadHousehold(); // Reload household to show new rooms
+    setSnackbar({
+      open: true,
+      message: '¡Bienvenido a KameHouse! Tu hogar está listo para fluir 🌊',
+      severity: 'success',
+    });
   };
 
   const handleQuestComplete = async (questId: string) => {
@@ -422,6 +443,15 @@ export default function Dashboard() {
 
       {/* Help Drawer */}
       <HelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
+
+      {/* Onboarding Flow */}
+      {showOnboarding && household && (
+        <OnboardingFlow
+          open={showOnboarding}
+          onComplete={handleOnboardingComplete}
+          householdId={household.id}
+        />
+      )}
     </Container>
   );
 }

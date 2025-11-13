@@ -32,6 +32,7 @@ model User {
   maxHealth   Int      @default(50)
   gold        Int      @default(0)
   gems        Int      @default(0)
+  streak      Int      @default(0)
 
   // Attributes (RPG-style)
   strength     Int @default(0)
@@ -58,6 +59,14 @@ model User {
   choreAssignments      ChoreAssignment[]
   announcements         Announcement[]
   announcementReactions AnnouncementReaction[]
+  notifications         Notification[]
+  notificationPreferences NotificationPreference?
+  pushSubscriptions     PushSubscription[]
+
+  // Sprint 6 Relations
+  taskHistory           TaskHistory[]
+  createdTemplates      RoomTemplate[]
+  bulkOperations        BulkOperation[]
 
   @@map("users")
 }
@@ -368,6 +377,12 @@ model Household {
   transactions   FavorTransaction[]
   choreTemplates ChoreTemplate[]
   announcements  Announcement[]
+  rooms          Room[]
+
+  // Sprint 6 Relations
+  categories     TaskCategory[]
+  tags           Tag[]
+  bulkOperations BulkOperation[]
 
   @@map("households")
   @@index([ownerId])
@@ -456,6 +471,119 @@ model FavorTransaction {
 }
 
 // ============================================
+// ROOMS & SPATIAL ORGANIZATION
+// ============================================
+
+enum RoomType {
+  KITCHEN
+  LIVING_ROOM
+  BEDROOM
+  BATHROOM
+  DINING_ROOM
+  HOME_OFFICE
+  LAUNDRY_ROOM
+  GARAGE
+  BACKYARD
+  ENTRYWAY
+  STORAGE
+  CUSTOM
+}
+
+model Room {
+  id          String   @id @default(uuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  // Room Details
+  name        String
+  type        RoomType @default(CUSTOM)
+  icon        String   @default("🏠")
+  description String?
+
+  // Gamification
+  xp          Int      @default(0)
+  level       Int      @default(1)
+
+  // Order & Display
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  choreTemplates ChoreTemplate[]
+  taskPresets    TaskPreset[]
+
+  @@map("rooms")
+  @@index([householdId])
+  @@index([type])
+}
+
+// ============================================
+// TASK PRESETS (150+ Templates)
+// ============================================
+
+enum PresetFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  SEASONAL
+  YEARLY
+  AS_NEEDED
+}
+
+enum PresetCategory {
+  CLEANING
+  ORGANIZING
+  MAINTENANCE
+  COOKING
+  LAUNDRY
+  OUTDOOR
+  PETS
+  PLANTS
+  GENERAL
+}
+
+model TaskPreset {
+  id          String   @id @default(uuid())
+
+  // Preset Details
+  title       String
+  description String?
+  icon        String   @default("✅")
+
+  // Categorization
+  roomType    RoomType
+  category    PresetCategory @default(CLEANING)
+
+  // Recommended Settings
+  frequency   PresetFrequency @default(WEEKLY)
+  difficulty  Int      @default(1) // 1-5
+  estimatedMinutes Int @default(15)
+
+  // Gamification
+  xpReward    Int      @default(10)
+  goldReward  Int      @default(5)
+
+  // System vs User-Created
+  isSystemPreset Boolean @default(true)
+  roomId      String?
+  room        Room?    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("task_presets")
+  @@index([roomType])
+  @@index([category])
+  @@index([isSystemPreset])
+}
+
+// ============================================
 // CHORE ROTATION SYSTEM
 // ============================================
 
@@ -470,6 +598,10 @@ model ChoreTemplate {
   id            String        @id @default(uuid())
   householdId   String
   household     Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  // Room Assignment
+  roomId        String?
+  room          Room?         @relation(fields: [roomId], references: [id], onDelete: SetNull)
 
   // Chore Details
   title         String
@@ -490,6 +622,22 @@ model ChoreTemplate {
   photoRequired Boolean       @default(false)
   isActive      Boolean       @default(true)
 
+  // Scheduling (Sprint 5B)
+  scheduledAt    DateTime?                     // When task is scheduled to start
+  dueDate        DateTime?                     // When task should be completed
+  recurrence     String?       @default("none") // 'none', 'daily', 'weekly', 'monthly'
+  recurrenceData Json?                         // { interval: 1, daysOfWeek: [1,3,5] }
+  timezone       String?       @default("America/Mexico_City") // Timezone for scheduling
+
+  // Status Tracking (Sprint 5B)
+  status         String        @default("pending") // 'pending', 'in_progress', 'completed', 'overdue'
+  completedAt    DateTime?                     // When task was completed
+
+  // Recurrence Relations (Sprint 5B)
+  parentTaskId   String?
+  parentTask     ChoreTemplate? @relation("TaskRecurrence", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks     ChoreTemplate[] @relation("TaskRecurrence")
+
   // Timestamps
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -497,8 +645,19 @@ model ChoreTemplate {
   // Relations
   assignments   ChoreAssignment[]
 
+  // Sprint 6 Relations
+  categoryId    String?
+  category      TaskCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tags          TaskTag[]
+  history       TaskHistory[]
+
   @@map("chore_templates")
   @@index([householdId])
+  @@index([roomId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([parentTaskId])
+  @@index([categoryId])
 }
 
 model ChoreAssignment {
@@ -589,4 +748,316 @@ model AnnouncementReaction {
   @@unique([announcementId, userId, emoji])
   @@index([announcementId])
   @@index([userId])
+}
+
+// ============================================
+// NOTIFICATIONS (Sprint 5C)
+// ============================================
+
+enum NotificationType {
+  TASK_ASSIGNED       // You have a new task
+  TASK_DUE_SOON      // Task due in 24 hours
+  TASK_OVERDUE       // Task is overdue
+  TASK_COMPLETED     // Someone completed a task
+  CHORE_ROTATION     // New weekly chore rotation
+  FAVOR_REQUEST      // Someone requested a favor
+  FAVOR_ACCEPTED     // Your favor was accepted
+  ACHIEVEMENT        // Achievement unlocked
+  LEVEL_UP           // User leveled up
+  STREAK_MILESTONE   // Streak milestone reached
+  ANNOUNCEMENT       // New household announcement
+  SYSTEM             // System notifications
+}
+
+enum NotificationPriority {
+  LOW        // FYI notifications
+  MEDIUM     // Normal importance
+  HIGH       // Requires attention
+  URGENT     // Immediate action needed
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Notification Content
+  type        NotificationType
+  priority    NotificationPriority @default(MEDIUM)
+  title       String
+  message     String
+  icon        String?  @default("🔔")
+
+  // Action & Navigation
+  actionUrl   String?  // Frontend route to navigate when clicked
+  metadata    Json?    // Additional data (taskId, choreId, etc.)
+
+  // Status
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime? // Auto-delete after this date
+
+  @@map("notifications")
+  @@index([userId])
+  @@index([isRead])
+  @@index([type])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+model NotificationPreference {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Channel Settings
+  enableEmail       Boolean @default(false)
+  enablePush        Boolean @default(true)
+  enableInApp       Boolean @default(true)
+
+  // Type-Specific Settings (what to get notified about)
+  taskAssignments   Boolean @default(true)
+  taskReminders     Boolean @default(true)
+  taskCompletions   Boolean @default(true)
+  choreRotations    Boolean @default(true)
+  favorRequests     Boolean @default(true)
+  achievements      Boolean @default(true)
+  announcements     Boolean @default(true)
+
+  // Quiet Hours
+  enableQuietHours  Boolean @default(false)
+  quietHoursStart   String? // Format: "22:00"
+  quietHoursEnd     String? // Format: "08:00"
+
+  // Digest Settings
+  enableDailyDigest Boolean @default(false)
+  digestTime        String? @default("09:00")
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("notification_preferences")
+}
+
+model PushSubscription {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Web Push Subscription Data
+  endpoint    String   @unique
+  p256dh      String   // Public key
+  auth        String   // Auth secret
+
+  // Device Info
+  deviceName  String?  @default("Unknown Device")
+  userAgent   String?
+
+  // Status
+  isActive    Boolean  @default(true)
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastUsedAt  DateTime @default(now())
+
+  @@map("push_subscriptions")
+  @@index([userId])
+  @@index([endpoint])
+  @@index([isActive])
+}
+
+// ============================================
+// SPRINT 6: ADVANCED ROOM FEATURES
+// ============================================
+
+// Task Category Model - Organize tasks into categories
+model TaskCategory {
+  id          String   @id @default(uuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  // Category Details
+  name        String
+  description String?
+  color       String   @default("#3b82f6") // Hex color for UI
+  icon        String   @default("📋")
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+
+  // Relations
+  tasks       ChoreTemplate[]
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("task_categories")
+  @@index([householdId])
+  @@index([isActive])
+}
+
+// Tag Model - Flexible task filtering
+model Tag {
+  id          String   @id @default(uuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  // Tag Details
+  name        String
+  color       String   @default("#6b7280") // Hex color for UI
+
+  // Relations
+  tasks       TaskTag[]
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tags")
+  @@unique([householdId, name])
+  @@index([householdId])
+}
+
+// Junction table for many-to-many Task-Tag relationship
+model TaskTag {
+  id     String @id @default(uuid())
+  taskId String
+  task   ChoreTemplate @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("task_tags")
+  @@unique([taskId, tagId])
+  @@index([taskId])
+  @@index([tagId])
+}
+
+// Task History Model - Track all task changes for audit log
+model TaskHistory {
+  id          String   @id @default(uuid())
+  taskId      String
+  task        ChoreTemplate @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  // Actor
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Change Details
+  action      TaskHistoryAction // CREATED, UPDATED, DELETED, STATUS_CHANGED, ASSIGNED, SCHEDULED, COMPLETED
+  field       String?  // Field that was changed (title, dueDate, assignedTo, etc.)
+  oldValue    String?  // Previous value (JSON string)
+  newValue    String?  // New value (JSON string)
+  description String?  // Human-readable description
+
+  // Metadata
+  metadata    Json?    // Additional context
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+
+  @@map("task_history")
+  @@index([taskId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+enum TaskHistoryAction {
+  CREATED
+  UPDATED
+  DELETED
+  STATUS_CHANGED
+  ASSIGNED
+  SCHEDULED
+  COMPLETED
+  UNCOMPLETED
+}
+
+// Room Template Model - Predefined room configurations
+model RoomTemplate {
+  id          String   @id @default(uuid())
+
+  // Template Details
+  name        String
+  description String?
+  roomType    RoomType
+  icon        String   @default("🏠")
+
+  // Visibility
+  isSystemTemplate Boolean @default(false) // Created by system vs user
+  isPublic    Boolean  @default(false) // Available to all households
+  createdBy   String?
+  creator     User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  // Template Content (JSON containing room config + tasks)
+  config      Json     // { room: {...}, tasks: [...] }
+
+  // Usage Stats
+  useCount    Int      @default(0)
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("room_templates")
+  @@index([roomType])
+  @@index([isSystemTemplate])
+  @@index([isPublic])
+  @@index([createdBy])
+}
+
+// Bulk Operation Model - Track multi-task operations
+model BulkOperation {
+  id          String   @id @default(uuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  // Operator
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Operation Details
+  operation   BulkOperationType // UPDATE_STATUS, DELETE, ASSIGN, RESCHEDULE, TAG
+  targetCount Int      // Number of tasks affected
+  criteria    Json     // Selection criteria (filters used)
+  changes     Json     // Changes applied
+
+  // Status
+  status      BulkOperationStatus @default(PENDING)
+  progress    Int      @default(0) // Percentage complete
+  errors      Json?    // Any errors that occurred
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+
+  @@map("bulk_operations")
+  @@index([householdId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum BulkOperationType {
+  UPDATE_STATUS
+  DELETE
+  ASSIGN
+  RESCHEDULE
+  TAG
+  CATEGORY_CHANGE
+}
+
+enum BulkOperationStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
 }

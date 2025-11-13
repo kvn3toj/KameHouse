@@ -12,6 +12,14 @@ import { HouseholdModule } from './modules/household/household.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { ChoresModule } from './modules/chores/chores.module';
 import { BulletinModule } from './modules/bulletin/bulletin.module';
+import { RoomsModule } from './rooms/rooms.module';
+import { GamificationModule } from './gamification/gamification.module';
+import { NotificationModule } from './notifications/notification.module';
+import { CategoryModule } from './categories/category.module';
+import { TagModule } from './tags/tag.module';
+import { TaskHistoryModule } from './task-history/task-history.module';
+import { RoomTemplateModule } from './room-templates/room-template.module';
+import { BulkOperationsModule } from './bulk-operations/bulk-operations.module';
 
 @Module({
   imports: [
@@ -27,6 +35,14 @@ import { BulletinModule } from './modules/bulletin/bulletin.module';
     TransactionsModule,
     ChoresModule,
     BulletinModule,
+    RoomsModule,
+    GamificationModule,
+    NotificationModule,
+    CategoryModule,
+    TagModule,
+    TaskHistoryModule,
+    RoomTemplateModule,
+    BulkOperationsModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

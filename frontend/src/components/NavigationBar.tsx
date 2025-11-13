@@ -31,6 +31,7 @@ import { achievementsApi } from '@/lib/achievements-api';
 import { householdApi } from '@/lib/household-api';
 import MeDrawer from './MeDrawer';
 import HouseSettingsDrawer from './HouseSettingsDrawer';
+import NotificationBell from './NotificationBell';
 
 /**
  * Persistent navigation bar with notification badges
@@ -188,7 +189,8 @@ export default function NavigationBar() {
 
         {/* Desktop Drawer Buttons */}
         {!isMobile && (
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <NotificationBell />
             <IconButton
               color="inherit"
               onClick={() => setMeDrawerOpen(true)}
