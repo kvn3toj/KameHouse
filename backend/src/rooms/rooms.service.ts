@@ -380,6 +380,20 @@ export class RoomsService {
       },
     });
 
+    // If assignedTo is provided, create a ChoreAssignment for this week
+    if (data.assignedTo) {
+      const now = new Date();
+      const weekStarting = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+
+      await this.prisma.choreAssignment.create({
+        data: {
+          choreId: task.id,
+          assignedTo: data.assignedTo,
+          weekStarting,
+        },
+      });
+    }
+
     return task;
   }
 

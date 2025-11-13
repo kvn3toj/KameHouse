@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -15,14 +15,28 @@ import {
   Box,
   Grid,
   Alert,
+  Avatar,
+  ListItemAvatar,
+  ListItemText,
 } from '@mui/material';
 import { roomsApi } from '@/lib/rooms-api';
 import { TagInput } from '@/components/Tags/TagInput';
+import { api } from '@/lib/api';
 
 interface Tag {
   id: string;
   name: string;
   color: string;
+}
+
+interface HouseholdMember {
+  id: string;
+  userId: string;
+  username: string;
+  displayName?: string;
+  avatar?: string;
+  role: string;
+  nickname?: string;
 }
 
 interface TaskEditorProps {
@@ -54,8 +68,27 @@ export default function TaskEditor({ open, onClose, roomId, householdId, onTaskC
     goldReward: 10,
   });
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [selectedAssignee, setSelectedAssignee] = useState<string>('');
+  const [householdMembers, setHouseholdMembers] = useState<HouseholdMember[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (householdId && open) {
+      loadHouseholdMembers();
+    }
+  }, [householdId, open]);
+
+  const loadHouseholdMembers = async () => {
+    if (!householdId) return;
+
+    try {
+      const response = await api.get<{ members: HouseholdMember[] }>(`/household/${householdId}`);
+      setHouseholdMembers(response.members || []);
+    } catch (err) {
+      console.error('Failed to load household members:', err);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!formData.title.trim()) {
@@ -67,7 +100,12 @@ export default function TaskEditor({ open, onClose, roomId, householdId, onTaskC
       setLoading(true);
       setError(null);
 
-      await roomsApi.createCustomTask(roomId, formData);
+      const taskData = {
+        ...formData,
+        ...(selectedAssignee && { assignedTo: selectedAssignee }),
+      };
+
+      await roomsApi.createCustomTask(roomId, taskData);
 
       if (onTaskCreated) {
         onTaskCreated();
@@ -85,6 +123,7 @@ export default function TaskEditor({ open, onClose, roomId, householdId, onTaskC
         goldReward: 10,
       });
       setSelectedTags([]);
+      setSelectedAssignee('');
 
       onClose();
     } catch (err: any) {
@@ -150,6 +189,39 @@ export default function TaskEditor({ open, onClose, roomId, householdId, onTaskC
                   selectedTags={selectedTags}
                   onChange={setSelectedTags}
                 />
+              </Grid>
+            )}
+
+            {/* Assigned To */}
+            {householdId && householdMembers.length > 0 && (
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Responsable</InputLabel>
+                  <Select
+                    value={selectedAssignee}
+                    onChange={(e) => setSelectedAssignee(e.target.value)}
+                    label="Responsable"
+                  >
+                    <MenuItem value="">
+                      <em>Sin asignar</em>
+                    </MenuItem>
+                    {householdMembers.map((member) => (
+                      <MenuItem key={member.userId} value={member.userId}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {member.avatar && (
+                            <Avatar
+                              src={member.avatar}
+                              sx={{ width: 24, height: 24 }}
+                            />
+                          )}
+                          <Typography>
+                            {member.displayName || member.nickname || member.username}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
             )}
 
