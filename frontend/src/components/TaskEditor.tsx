@@ -17,11 +17,19 @@ import {
   Alert,
 } from '@mui/material';
 import { roomsApi } from '@/lib/rooms-api';
+import { TagInput } from '@/components/Tags/TagInput';
+
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface TaskEditorProps {
   open: boolean;
   onClose: () => void;
   roomId: string;
+  householdId?: string;
   onTaskCreated?: () => void;
 }
 
@@ -34,7 +42,7 @@ const FREQUENCY_OPTIONS = [
 
 const ICON_OPTIONS = ['🧹', '🧽', '🧺', '🗑️', '🧴', '🪥', '🚿', '🛁', '🍽️', '🍳', '🧊', '🌱', '💡', '🔧', '🪛'];
 
-export default function TaskEditor({ open, onClose, roomId, onTaskCreated }: TaskEditorProps) {
+export default function TaskEditor({ open, onClose, roomId, householdId, onTaskCreated }: TaskEditorProps) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -45,6 +53,7 @@ export default function TaskEditor({ open, onClose, roomId, onTaskCreated }: Tas
     xpReward: 20,
     goldReward: 10,
   });
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +84,7 @@ export default function TaskEditor({ open, onClose, roomId, onTaskCreated }: Tas
         xpReward: 20,
         goldReward: 10,
       });
+      setSelectedTags([]);
 
       onClose();
     } catch (err: any) {
@@ -131,6 +141,17 @@ export default function TaskEditor({ open, onClose, roomId, onTaskCreated }: Tas
                 placeholder="Describe los detalles de la tarea..."
               />
             </Grid>
+
+            {/* Tags */}
+            {householdId && (
+              <Grid item xs={12}>
+                <TagInput
+                  householdId={householdId}
+                  selectedTags={selectedTags}
+                  onChange={setSelectedTags}
+                />
+              </Grid>
+            )}
 
             {/* Icon */}
             <Grid item xs={12} sm={6}>

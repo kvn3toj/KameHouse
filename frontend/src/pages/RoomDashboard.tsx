@@ -38,6 +38,7 @@ import TaskEditor from '@/components/TaskEditor';
 import TaskCalendarView from '@/components/TaskCalendarView';
 import { RoomTemplatesLibrary } from '@/components/RoomTemplates/RoomTemplatesLibrary';
 import { BulkOperationsDialog } from '@/components/BulkOperations/BulkOperationsDialog';
+import { CategoryManager } from '@/components/Categories/CategoryManager';
 
 export default function RoomDashboard() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -254,6 +255,13 @@ export default function RoomDashboard() {
           </Grid>
         </Grid>
 
+        {/* Category Manager */}
+        {room && (
+          <Box sx={{ mb: 4 }}>
+            <CategoryManager householdId={room.householdId} />
+          </Box>
+        )}
+
         {/* Task Management Section */}
         <Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -313,6 +321,7 @@ export default function RoomDashboard() {
           {viewMode === 'list' ? (
             <TaskList
               roomId={roomId!}
+              householdId={room.householdId}
               onTaskComplete={() => {
                 setShowConfetti(true);
                 setTimeout(() => setShowConfetti(false), 3000);
@@ -347,6 +356,7 @@ export default function RoomDashboard() {
           open={showTaskEditor}
           onClose={() => setShowTaskEditor(false)}
           roomId={room.id}
+          householdId={room.householdId}
           onTaskCreated={() => {
             setShowConfetti(true);
             setTimeout(() => setShowConfetti(false), 3000);

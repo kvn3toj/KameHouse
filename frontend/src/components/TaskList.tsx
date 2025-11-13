@@ -19,6 +19,7 @@ import {
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { roomsApi } from '@/lib/rooms-api';
+import { TagFilter } from '@/components/Tags/TagFilter';
 
 interface Task {
   id: string;
@@ -35,14 +36,16 @@ interface Task {
 
 interface TaskListProps {
   roomId: string;
+  householdId?: string;
   onTaskComplete?: () => void;
   onAddTask?: () => void;
 }
 
-export default function TaskList({ roomId, onTaskComplete, onAddTask }: TaskListProps) {
+export default function TaskList({ roomId, householdId, onTaskComplete, onAddTask }: TaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
   useEffect(() => {
     loadTasks();
@@ -131,6 +134,17 @@ export default function TaskList({ roomId, onTaskComplete, onAddTask }: TaskList
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
+      )}
+
+      {/* Tag Filter */}
+      {householdId && (
+        <Box sx={{ mb: 3 }}>
+          <TagFilter
+            householdId={householdId}
+            selectedTagIds={selectedTagIds}
+            onChange={setSelectedTagIds}
+          />
+        </Box>
       )}
 
       <Stack spacing={2}>
