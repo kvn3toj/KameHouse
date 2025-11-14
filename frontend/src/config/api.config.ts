@@ -5,7 +5,7 @@ export const getApiUrl = (): string => {
 
   // Production environment (Vercel) - separate backend deployment
   if (hostname.includes('vercel.app') || import.meta.env.PROD) {
-    return 'https://backend-k3hg7kapg-kvn3tojgames.vercel.app/api';
+    return 'https://backend-j3s77rvz3-kvn3tojgames.vercel.app/api';
   }
 
   // Development: localhost
