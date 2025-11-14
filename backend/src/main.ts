@@ -43,39 +43,4 @@ async function bootstrap() {
   console.log(`📱 Access from mobile: http://[YOUR_LOCAL_IP]:${port}/api`);
 }
 
-// For local development
-if (require.main === module) {
-  bootstrap();
-}
-
-// Cache for serverless
-let cachedServer: any;
-
-// Export for Vercel serverless
-export default async (req: any, res: any) => {
-  if (!cachedServer) {
-    const app = await NestFactory.create(AppModule);
-
-    app.enableCors({
-      origin: /^https:\/\/.*\.vercel\.app$/,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    });
-
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        transform: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
-
-    app.setGlobalPrefix('api');
-    await app.init();
-
-    cachedServer = app.getHttpAdapter().getInstance();
-  }
-
-  return cachedServer(req, res);
-};
+bootstrap();
