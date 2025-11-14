@@ -4,13 +4,13 @@ import { AppModule } from '../src/app.module';
 import { ValidationPipe } from '@nestjs/common';
 import * as express from 'express';
 
-const server = express();
-let app: any;
+let cachedServer: express.Application;
 
 async function bootstrap() {
-  if (!app) {
-    const expressAdapter = new ExpressAdapter(server);
-    app = await NestFactory.create(AppModule, expressAdapter);
+  if (!cachedServer) {
+    const expressApp = express();
+    const adapter = new ExpressAdapter(expressApp);
+    const app = await NestFactory.create(AppModule, adapter);
 
     app.enableCors({
       origin: /^https:\/\/.*\.vercel\.app$/,
@@ -29,11 +29,18 @@ async function bootstrap() {
 
     app.setGlobalPrefix('api');
     await app.init();
+
+    cachedServer = expressApp;
   }
-  return server;
+  return cachedServer;
 }
 
 export default async (req: any, res: any) => {
-  await bootstrap();
-  server(req, res);
+  try {
+    const server = await bootstrap();
+    return server(req, res);
+  } catch (error) {
+    console.error('Serverless function error:', error);
+    return res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
 };
