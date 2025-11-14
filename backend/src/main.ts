@@ -5,7 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS for localhost and local network (WiFi mobile access)
+  // Enable CORS for localhost, local network, and production
   app.enableCors({
     origin: [
       'http://localhost:5173',
@@ -15,6 +15,8 @@ async function bootstrap() {
       /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:(5173|5174|3000)$/,
       /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:(5173|5174|3000)$/,
       /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}:(5173|5174|3000)$/,
+      // Production Vercel domains
+      /^https:\/\/.*\.vercel\.app$/,
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -41,4 +43,33 @@ async function bootstrap() {
   console.log(`📱 Access from mobile: http://[YOUR_LOCAL_IP]:${port}/api`);
 }
 
-bootstrap();
+// For local development
+if (require.main === module) {
+  bootstrap();
+}
+
+// Export for Vercel serverless
+export default async (req: any, res: any) => {
+  const app = await NestFactory.create(AppModule);
+
+  app.enableCors({
+    origin: /^https:\/\/.*\.vercel\.app$/,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+
+  app.setGlobalPrefix('api');
+  await app.init();
+
+  const server = app.getHttpAdapter().getInstance();
+  return server(req, res);
+};
