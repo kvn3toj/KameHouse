@@ -48,28 +48,34 @@ if (require.main === module) {
   bootstrap();
 }
 
+// Cache for serverless
+let cachedServer: any;
+
 // Export for Vercel serverless
 export default async (req: any, res: any) => {
-  const app = await NestFactory.create(AppModule);
+  if (!cachedServer) {
+    const app = await NestFactory.create(AppModule);
 
-  app.enableCors({
-    origin: /^https:\/\/.*\.vercel\.app$/,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  });
+    app.enableCors({
+      origin: /^https:\/\/.*\.vercel\.app$/,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    });
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
 
-  app.setGlobalPrefix('api');
-  await app.init();
+    app.setGlobalPrefix('api');
+    await app.init();
 
-  const server = app.getHttpAdapter().getInstance();
-  return server(req, res);
+    cachedServer = app.getHttpAdapter().getInstance();
+  }
+
+  return cachedServer(req, res);
 };
