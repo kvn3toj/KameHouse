@@ -48,6 +48,7 @@ import type { Transaction, UserBalance } from '@/types/transaction';
 import type { Announcement, CreateAnnouncementDto, UpdateAnnouncementDto } from '@/lib/bulletin-api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useHousehold } from '@/contexts/HouseholdContext';
 import LoadingState from '@/components/LoadingState';
 import ErrorState from '@/components/ErrorState';
 import EmptyState from '@/components/EmptyState';
@@ -72,6 +73,7 @@ import { getBalanceFeedback } from '@/lib/lets-feedback';
 export default function KameHouse() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { currentHousehold, createHousehold, loadHouseholds } = useHousehold();
   const [household, setHousehold] = useState<Household | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -112,32 +114,40 @@ export default function KameHouse() {
     severity: 'success',
   });
 
+  // Use currentHousehold from AuthContext instead of loading independently
   useEffect(() => {
-    loadHousehold();
-  }, []);
+    if (currentHousehold) {
+      setHousehold(currentHousehold);
+      loadHouseholdData(currentHousehold.id);
+    } else {
+      setHousehold(null);
+      setLoading(false);
+    }
+  }, [currentHousehold]);
 
-  const loadHousehold = async () => {
+  const loadHouseholdData = async (householdId: string) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await householdApi.getMy();
-      setHousehold(data);
-      if (data) {
-        await Promise.all([
-          loadLeaderboard(data.id),
-          loadTransactions(data.id),
-          loadBalance(data.id),
-          loadAnnouncements(data.id),
-          loadChoresDueCount(),
-        ]);
-      }
+      await Promise.all([
+        loadLeaderboard(householdId),
+        loadTransactions(householdId),
+        loadBalance(householdId),
+        loadAnnouncements(householdId),
+        loadChoresDueCount(),
+      ]);
     } catch (err: any) {
-      console.error('Failed to load household:', err);
-      if (err.response?.status !== 404) {
-        setError(err.message || 'Failed to load household data');
-      }
+      console.error('Failed to load household data:', err);
+      setError(err.message || 'Failed to load household data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadHousehold = async () => {
+    // This is now just for compatibility with dialog callbacks
+    if (currentHousehold) {
+      await loadHouseholdData(currentHousehold.id);
     }
   };
 
@@ -194,13 +204,15 @@ export default function KameHouse() {
 
   const handleCreateHousehold = async () => {
     try {
-      await householdApi.create({
-        name: householdName,
-        description: householdDescription,
-      });
+      // Use AuthContext to ensure global state is updated (header dropdown, etc.)
+      await createHousehold(householdName, 'FAMILY');
+      // Reload households to update global state
+      await loadHouseholds();
+      // Refresh local Templo view
+      loadHousehold();
+
       setSnackbar({ open: true, message: 'Household created successfully!', severity: 'success' });
       setCreateDialogOpen(false);
-      loadHousehold();
     } catch (error: any) {
       setSnackbar({ open: true, message: error.message || 'Failed to create household', severity: 'error' });
     }
@@ -549,7 +561,9 @@ export default function KameHouse() {
 
   const topLeaderboard = showAllLeaderboard ? leaderboard : leaderboard.slice(0, 3);
   const recentAnnouncements = showAllAnnouncements ? announcements : announcements.slice(0, 3);
-  const visibleMembers = showAllMembers ? household.members : household.members.slice(0, 6);
+  const visibleMembers = household?.members
+    ? (showAllMembers ? household.members : household.members.slice(0, 6))
+    : [];
 
   return (
     <Container maxWidth="lg">
@@ -558,9 +572,9 @@ export default function KameHouse() {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
           <Box>
             <Typography variant="h4" component="h1" fontWeight={700} gutterBottom>
-              🏛️ {household.name}
+              🏛️ {household?.name || 'Unnamed Household'}
             </Typography>
-            {household.description && (
+            {household?.description && (
               <Typography variant="body1" color="text.secondary">
                 {household.description}
               </Typography>
@@ -604,7 +618,7 @@ export default function KameHouse() {
           pendingFavorsCount={pendingFavorsCount}
           choresDueCount={choresDueCount}
           newPostsCount={newPostsCount}
-          householdName={household.name}
+          householdName={household?.name || 'Your Household'}
         />
 
         {/* Quick Actions */}
@@ -881,15 +895,15 @@ export default function KameHouse() {
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" fontWeight={700}>
-                👥 Family Members ({household.memberCount})
+                👥 Family Members ({household?.memberCount || 0})
               </Typography>
-              {household.members.length > 6 && (
+              {household?.members && household.members.length > 6 && (
                 <Button
                   size="small"
                   endIcon={<ExpandIcon sx={{ transform: showAllMembers ? 'rotate(180deg)' : 'none' }} />}
                   onClick={() => setShowAllMembers(!showAllMembers)}
                 >
-                  {showAllMembers ? 'Show Less' : `View All (${household.members.length})`}
+                  {showAllMembers ? 'Show Less' : `View All (${household?.members?.length || 0})`}
                 </Button>
               )}
             </Box>

@@ -1,225 +1,235 @@
-// Hardcode for now since import.meta.env isn't working reliably
-const API_URL = 'http://localhost:3000/api';
+/**
+ * Notifications API - PocketBase Implementation
+ * PHOENIX-12 Phase 2B: Migrated from legacy localhost:3000 to PocketBase
+ *
+ * Collections used:
+ * - notifications: User notifications
+ * - notification_preferences: User notification settings
+ * - push_subscriptions: Push notification subscriptions
+ */
 
-export interface Notification {
-  id: string;
-  type: string;
-  priority: string;
-  title: string;
-  message: string;
-  icon: string;
-  actionUrl?: string;
-  metadata?: any;
-  isRead: boolean;
-  readAt?: string;
-  createdAt: string;
-  expiresAt?: string;
-}
+import { pb } from './pocketbase';
+import type {
+  Notification,
+  NotificationPreferences,
+  CreateNotificationDto,
+  UpdatePreferencesDto,
+  CreatePushSubscriptionDto,
+  PushSubscription as PushSubscriptionType,
+} from '@/types/notification';
 
-export interface NotificationPreferences {
-  id: string;
-  enableEmail: boolean;
-  enablePush: boolean;
-  enableInApp: boolean;
-  taskAssignments: boolean;
-  taskReminders: boolean;
-  taskCompletions: boolean;
-  choreRotations: boolean;
-  favorRequests: boolean;
-  achievements: boolean;
-  announcements: boolean;
-  enableQuietHours: boolean;
-  quietHoursStart?: string;
-  quietHoursEnd?: string;
-  enableDailyDigest: boolean;
-  digestTime?: string;
-}
+// ============================================
+// NOTIFICATIONS CRUD
+// ============================================
 
 export const notificationsApi = {
   /**
    * Get all notifications for current user
    */
   async getNotifications(limit: number = 50): Promise<Notification[]> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/notifications?limit=${limit}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
+
+    const result = await pb.collection('notifications').getList<Notification>(1, limit, {
+      filter: `user = "${userId}"`,
+      sort: '-created',
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to fetch notifications');
-    }
-
-    return response.json();
+    return result.items;
   },
 
   /**
    * Get unread notification count
    */
   async getUnreadCount(): Promise<number> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/notifications/unread-count`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
+
+    const result = await pb.collection('notifications').getList<Notification>(1, 1, {
+      filter: `user = "${userId}" && isRead = false`,
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to fetch unread count');
-    }
-
-    const data = await response.json();
-    return data.count;
+    return result.totalItems;
   },
 
   /**
    * Mark notification as read
    */
   async markAsRead(notificationId: string): Promise<Notification> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    return await pb.collection('notifications').update<Notification>(notificationId, {
+      isRead: true,
+      readAt: new Date().toISOString(),
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to mark notification as read');
-    }
-
-    return response.json();
   },
 
   /**
    * Mark all notifications as read
    */
   async markAllAsRead(): Promise<void> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/notifications/mark-all-read`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
+
+    // Get all unread notifications
+    const unreadNotifications = await pb.collection('notifications').getFullList<Notification>({
+      filter: `user = "${userId}" && isRead = false`,
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to mark all as read');
-    }
+    // Update each notification
+    const updatePromises = unreadNotifications.map(notification =>
+      pb.collection('notifications').update(notification.id, {
+        isRead: true,
+        readAt: new Date().toISOString(),
+      })
+    );
+
+    await Promise.all(updatePromises);
   },
 
   /**
    * Delete a notification
    */
   async deleteNotification(notificationId: string): Promise<void> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/notifications/${notificationId}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to delete notification');
-    }
+    await pb.collection('notifications').delete(notificationId);
   },
 
   /**
    * Delete all read notifications
    */
   async deleteAllRead(): Promise<void> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/notifications/read/all`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
+
+    // Get all read notifications
+    const readNotifications = await pb.collection('notifications').getFullList<Notification>({
+      filter: `user = "${userId}" && isRead = true`,
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to delete read notifications');
-    }
+    // Delete each notification
+    const deletePromises = readNotifications.map(notification =>
+      pb.collection('notifications').delete(notification.id)
+    );
+
+    await Promise.all(deletePromises);
   },
 
   /**
-   * Get notification preferences
+   * Create a notification (typically called by backend services, but available for testing)
+   */
+  async createNotification(data: CreateNotificationDto): Promise<Notification> {
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
+
+    return await pb.collection('notifications').create<Notification>({
+      user: userId,
+      type: data.type,
+      priority: data.priority,
+      title: data.title,
+      message: data.message,
+      icon: data.icon || '🔔',
+      actionUrl: data.actionUrl,
+      metadata: data.metadata,
+      isRead: false,
+      expiresAt: data.expiresAt,
+    });
+  },
+
+  // ============================================
+  // NOTIFICATION PREFERENCES
+  // ============================================
+
+  /**
+   * Get notification preferences for current user
    */
   async getPreferences(): Promise<NotificationPreferences> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/notifications/preferences`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to fetch preferences');
+    try {
+      // Try to find existing preferences
+      const result = await pb.collection('notification_preferences').getList<NotificationPreferences>(1, 1, {
+        filter: `user = "${userId}"`,
+      });
+
+      if (result.items.length > 0) {
+        return result.items[0];
+      }
+
+      // Create default preferences if none exist
+      return await pb.collection('notification_preferences').create<NotificationPreferences>({
+        user: userId,
+        enableEmail: false,
+        enablePush: true,
+        enableInApp: true,
+        taskAssignments: true,
+        taskReminders: true,
+        taskCompletions: true,
+        choreRotations: true,
+        favorRequests: true,
+        achievements: true,
+        announcements: true,
+        enableQuietHours: false,
+        quietHoursStart: '22:00',
+        quietHoursEnd: '08:00',
+        enableDailyDigest: false,
+        digestTime: '09:00',
+      });
+    } catch (error) {
+      console.error('Error getting preferences:', error);
+      throw error;
     }
-
-    return response.json();
   },
 
   /**
    * Update notification preferences
    */
-  async updatePreferences(preferences: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/notifications/preferences`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(preferences),
-    });
+  async updatePreferences(preferences: UpdatePreferencesDto): Promise<NotificationPreferences> {
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to update preferences');
-    }
+    // Get existing preferences first
+    const existing = await this.getPreferences();
 
-    return response.json();
+    return await pb.collection('notification_preferences').update<NotificationPreferences>(
+      existing.id,
+      preferences
+    );
   },
+
+  // ============================================
+  // PUSH NOTIFICATIONS
+  // ============================================
 
   /**
    * Subscribe to push notifications
    */
   async subscribeToPush(subscription: PushSubscription): Promise<void> {
-    const token = localStorage.getItem('auth_token');
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
 
     // Convert PushSubscription to our format
     const subscriptionJson = subscription.toJSON();
 
-    const response = await fetch(`${API_URL}/notifications/push/subscribe`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
+    // Check if subscription already exists
+    const existing = await pb.collection('push_subscriptions').getList<PushSubscriptionType>(1, 1, {
+      filter: `user = "${userId}" && endpoint = "${subscription.endpoint}"`,
+    });
+
+    if (existing.items.length > 0) {
+      // Update existing subscription
+      await pb.collection('push_subscriptions').update(existing.items[0].id, {
+        p256dh: subscriptionJson.keys?.p256dh || '',
+        auth: subscriptionJson.keys?.auth || '',
+        isActive: true,
+      });
+    } else {
+      // Create new subscription
+      await pb.collection('push_subscriptions').create<PushSubscriptionType>({
+        user: userId,
         endpoint: subscription.endpoint,
         p256dh: subscriptionJson.keys?.p256dh || '',
         auth: subscriptionJson.keys?.auth || '',
         deviceName: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Desktop',
         userAgent: navigator.userAgent,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to subscribe to push');
+        isActive: true,
+      });
     }
   },
 
@@ -227,19 +237,22 @@ export const notificationsApi = {
    * Unsubscribe from push notifications
    */
   async unsubscribeFromPush(endpoint: string): Promise<void> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/notifications/push/unsubscribe`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ endpoint }),
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
+
+    // Find the subscription
+    const result = await pb.collection('push_subscriptions').getList<PushSubscriptionType>(1, 1, {
+      filter: `user = "${userId}" && endpoint = "${endpoint}"`,
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to unsubscribe from push');
+    if (result.items.length > 0) {
+      // Mark as inactive instead of deleting
+      await pb.collection('push_subscriptions').update(result.items[0].id, {
+        isActive: false,
+      });
     }
   },
 };
+
+// Re-export types for convenience
+export type { Notification, NotificationPreferences };

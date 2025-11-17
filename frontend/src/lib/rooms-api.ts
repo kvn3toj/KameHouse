@@ -1,362 +1,321 @@
-// Hardcode for now since import.meta.env isn't working reliably
-const API_URL = 'http://localhost:3000/api';
+/**
+ * Rooms API - PocketBase Implementation
+ * PHOENIX-12 Phase 2A: Migrated from legacy localhost:3000 to PocketBase
+ *
+ * Collections used:
+ * - rooms: Room CRUD and XP management
+ * - task_presets: Task templates for quick task creation
+ * - room_tasks: Task instances, scheduling, and completion tracking
+ */
 
-export interface Room {
-  id: string;
-  householdId: string;
-  name: string;
-  type: string;
-  icon: string;
-  description?: string;
-  xp: number;
-  level: number;
-  order: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+import { pb } from './pocketbase';
+import type {
+  Room,
+  RoomStats,
+  CreateRoomDto,
+  UpdateRoomDto,
+  TaskPreset,
+  RoomTask,
+  CreateTaskDto,
+  UpdateTaskDto,
+  ScheduleTaskDto,
+  TaskStatus,
+} from '@/types/room';
 
-export interface RoomStats {
-  name: string;
-  type: string;
-  icon: string;
-  level: number;
-  xp: number;
-  xpForNextLevel: number;
-  progressToNextLevel: number;
-  totalTasks: number;
-  completedTasks: number;
-  completionRate: string;
-}
-
-export interface CreateRoomDto {
-  householdId: string;
-  name: string;
-  type: string;
-  icon?: string;
-  description?: string;
-  order?: number;
-}
-
-export interface TaskPreset {
-  id: string;
-  title: string;
-  description?: string;
-  icon: string;
-  roomType: string;
-  category: string;
-  frequency: string;
-  difficulty: number;
-  estimatedMinutes: number;
-  xpReward: number;
-  goldReward: number;
-  isSystemPreset: boolean;
-}
+// ============================================
+// ROOM CRUD
+// ============================================
 
 export const roomsApi = {
+  /**
+   * Create a new room in a household
+   */
   async create(data: CreateRoomDto): Promise<Room> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(data),
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
+
+    return await pb.collection('rooms').create<Room>({
+      household: data.household,
+      name: data.name,
+      type: data.type,
+      icon: data.icon || '',
+      description: data.description || '',
+      xp: 0,
+      level: 1,
+      order: data.order ?? 0,
+      isActive: true,
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to create room');
-    }
-
-    return response.json();
   },
 
+  /**
+   * Get all rooms for a household
+   */
   async findByHousehold(householdId: string): Promise<Room[]> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/household/${householdId}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const result = await pb.collection('rooms').getList<Room>(1, 100, {
+      filter: `household = "${householdId}" && isActive = true`,
+      sort: 'order,created',
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to fetch rooms');
-    }
-
-    return response.json();
+    return result.items;
   },
 
+  /**
+   * Get a single room by ID
+   */
   async findOne(roomId: string): Promise<Room> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/${roomId}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to fetch room');
-    }
-
-    return response.json();
+    return await pb.collection('rooms').getOne<Room>(roomId);
   },
 
+  /**
+   * Get room statistics (XP, level, tasks, completion)
+   */
   async getStats(roomId: string): Promise<RoomStats> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/gamification/room-stats/${roomId}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const room = await pb.collection('rooms').getOne<Room>(roomId);
+
+    // Fetch room tasks to calculate stats
+    const tasks = await pb.collection('room_tasks').getList<RoomTask>(1, 500, {
+      filter: `room = "${roomId}"`,
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to fetch room stats');
-    }
+    const totalTasks = tasks.items.length;
+    const completedTasks = tasks.items.filter(t => t.status === 'COMPLETED').length;
+    const completionRate = totalTasks > 0
+      ? `${Math.round((completedTasks / totalTasks) * 100)}%`
+      : '0%';
 
-    return response.json();
+    // XP system: 100 XP per level, exponential growth
+    const xpForNextLevel = room.level * 100;
+    const progressToNextLevel = (room.xp / xpForNextLevel) * 100;
+
+    return {
+      name: room.name,
+      type: room.type,
+      icon: room.icon,
+      level: room.level,
+      xp: room.xp,
+      xpForNextLevel,
+      progressToNextLevel: Math.min(progressToNextLevel, 100),
+      totalTasks,
+      completedTasks,
+      completionRate,
+    };
   },
 
-  async update(roomId: string, data: Partial<CreateRoomDto>): Promise<Room> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/${roomId}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to update room');
-    }
-
-    return response.json();
+  /**
+   * Update room properties
+   */
+  async update(roomId: string, data: UpdateRoomDto): Promise<Room> {
+    return await pb.collection('rooms').update<Room>(roomId, data);
   },
 
+  /**
+   * Soft delete a room (sets isActive to false)
+   */
   async delete(roomId: string): Promise<void> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/${roomId}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to delete room');
-    }
+    await pb.collection('rooms').update(roomId, { isActive: false });
   },
 
+  // ============================================
+  // TASK PRESETS
+  // ============================================
+
+  /**
+   * Get all task presets for a specific room type
+   */
   async getPresetsByRoomType(roomType: string): Promise<TaskPreset[]> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/presets/${roomType}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const result = await pb.collection('task_presets').getList<TaskPreset>(1, 100, {
+      filter: `roomType = "${roomType}" || roomType = "ALL"`,
+      sort: 'category,title',
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to fetch task presets');
-    }
-
-    return response.json();
+    return result.items;
   },
 
-  async createTaskFromPreset(roomId: string, presetId: string): Promise<any> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/${roomId}/tasks/from-preset/${presetId}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+  /**
+   * Create a task from a preset template
+   */
+  async createTaskFromPreset(roomId: string, presetId: string): Promise<RoomTask> {
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
+
+    // Fetch the preset
+    const preset = await pb.collection('task_presets').getOne<TaskPreset>(presetId);
+
+    // Fetch room to get household
+    const room = await pb.collection('rooms').getOne<Room>(roomId);
+
+    // Create task from preset
+    return await pb.collection('room_tasks').create<RoomTask>({
+      room: roomId,
+      household: room.household,
+      createdBy: userId,
+      title: preset.title,
+      description: preset.description || '',
+      difficulty: preset.difficulty,
+      estimatedMinutes: preset.estimatedMinutes,
+      xpReward: preset.xpReward,
+      goldReward: preset.goldReward,
+      status: 'TODO',
+      isRecurring: false,
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to create task from preset');
-    }
-
-    return response.json();
   },
 
-  async getRoomTasks(roomId: string): Promise<any[]> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/${roomId}/tasks`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+  // ============================================
+  // ROOM TASKS
+  // ============================================
+
+  /**
+   * Get all tasks for a room
+   */
+  async getRoomTasks(roomId: string): Promise<RoomTask[]> {
+    const result = await pb.collection('room_tasks').getList<RoomTask>(1, 500, {
+      filter: `room = "${roomId}"`,
+      sort: '-created',
+      expand: 'createdBy,completedBy',
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to fetch room tasks');
-    }
-
-    return response.json();
+    return result.items;
   },
 
-  async createCustomTask(roomId: string, data: any): Promise<any> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/${roomId}/tasks`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(data),
+  /**
+   * Create a custom task for a room
+   */
+  async createCustomTask(roomId: string, data: CreateTaskDto): Promise<RoomTask> {
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
+
+    return await pb.collection('room_tasks').create<RoomTask>({
+      ...data,
+      room: roomId,
+      createdBy: userId,
+      status: 'TODO',
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to create custom task');
-    }
-
-    return response.json();
   },
 
-  async updateTask(roomId: string, taskId: string, data: any): Promise<any> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/${roomId}/tasks/${taskId}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to update task');
-    }
-
-    return response.json();
+  /**
+   * Update a task
+   */
+  async updateTask(roomId: string, taskId: string, data: UpdateTaskDto): Promise<RoomTask> {
+    return await pb.collection('room_tasks').update<RoomTask>(taskId, data);
   },
 
+  /**
+   * Delete a task
+   */
   async deleteTask(roomId: string, taskId: string): Promise<void> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/${roomId}/tasks/${taskId}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    await pb.collection('room_tasks').delete(taskId);
+  },
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to delete task');
+  /**
+   * Update task status (convenience method)
+   */
+  async updateTaskStatus(roomId: string, taskId: string, status: TaskStatus): Promise<RoomTask> {
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
+
+    const updateData: UpdateTaskDto = { status };
+
+    // If completing task, record completion details
+    if (status === 'COMPLETED') {
+      updateData.completedAt = new Date().toISOString();
+      updateData.completedBy = userId;
+
+      // Award XP to room
+      const task = await pb.collection('room_tasks').getOne<RoomTask>(taskId);
+      const room = await pb.collection('rooms').getOne<Room>(task.room);
+
+      const newXp = room.xp + task.xpReward;
+      const xpForNextLevel = room.level * 100;
+      const newLevel = room.level + Math.floor(newXp / xpForNextLevel);
+
+      await pb.collection('rooms').update(room.id, {
+        xp: newXp % xpForNextLevel, // Carry over remaining XP
+        level: newLevel,
+      });
     }
+
+    return await pb.collection('room_tasks').update<RoomTask>(taskId, updateData);
   },
 
   // ============================================
-  // TASK SCHEDULING API (Sprint 5B)
+  // TASK SCHEDULING
   // ============================================
 
-  async scheduleTask(roomId: string, taskId: string, scheduleData: any): Promise<any> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/${roomId}/tasks/${taskId}/schedule`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(scheduleData),
+  /**
+   * Schedule a task with recurring pattern
+   */
+  async scheduleTask(roomId: string, taskId: string, scheduleData: ScheduleTaskDto): Promise<RoomTask> {
+    return await pb.collection('room_tasks').update<RoomTask>(taskId, {
+      isRecurring: scheduleData.isRecurring,
+      recurringPattern: scheduleData.recurringPattern,
+    });
+  },
+
+  /**
+   * Generate task instances from recurring pattern
+   * Note: This is a simplified version - full implementation would require
+   * a backend service or cron job to generate instances automatically
+   */
+  async generateInstances(roomId: string, taskId: string, until: string): Promise<RoomTask[]> {
+    const userId = pb.authStore.model?.id;
+    if (!userId) throw new Error('User not authenticated');
+
+    const parentTask = await pb.collection('room_tasks').getOne<RoomTask>(taskId);
+
+    if (!parentTask.isRecurring || !parentTask.recurringPattern) {
+      throw new Error('Task is not recurring');
+    }
+
+    // For now, create a single instance as a placeholder
+    // Full implementation would generate multiple instances based on pattern
+    const instance = await pb.collection('room_tasks').create<RoomTask>({
+      room: roomId,
+      household: parentTask.household,
+      createdBy: userId,
+      title: parentTask.title,
+      description: parentTask.description,
+      difficulty: parentTask.difficulty,
+      estimatedMinutes: parentTask.estimatedMinutes,
+      xpReward: parentTask.xpReward,
+      goldReward: parentTask.goldReward,
+      status: 'TODO',
+      isRecurring: false,
+      parentTaskId: taskId,
+      dueDate: until,
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to schedule task');
-    }
-
-    return response.json();
+    return [instance];
   },
 
-  async generateInstances(roomId: string, taskId: string, until: string): Promise<any[]> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/${roomId}/tasks/${taskId}/schedule/instances`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ until }),
+  /**
+   * Cancel a recurring task schedule
+   */
+  async cancelSchedule(roomId: string, taskId: string): Promise<RoomTask> {
+    return await pb.collection('room_tasks').update<RoomTask>(taskId, {
+      isRecurring: false,
+      recurringPattern: null,
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to generate instances');
-    }
-
-    return response.json();
   },
 
-  async cancelSchedule(roomId: string, taskId: string): Promise<any> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/${roomId}/tasks/${taskId}/schedule`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+  /**
+   * Get scheduled tasks within a date range
+   */
+  async getScheduledTasks(roomId: string, startDate: string, endDate: string): Promise<RoomTask[]> {
+    const result = await pb.collection('room_tasks').getList<RoomTask>(1, 500, {
+      filter: `room = "${roomId}" && dueDate >= "${startDate}" && dueDate <= "${endDate}"`,
+      sort: 'dueDate',
+      expand: 'createdBy,completedBy',
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to cancel schedule');
-    }
-
-    return response.json();
+    return result.items;
   },
+};
 
-  async getScheduledTasks(roomId: string, startDate: string, endDate: string): Promise<any[]> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(
-      `${API_URL}/rooms/${roomId}/tasks/scheduled?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to fetch scheduled tasks');
-    }
-
-    return response.json();
-  },
-
-  async updateTaskStatus(roomId: string, taskId: string, status: string): Promise<any> {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${API_URL}/rooms/${roomId}/tasks/${taskId}/status`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ status }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to update task status');
-    }
-
-    return response.json();
-  },
+// Re-export types for convenience
+export type {
+  Room,
+  RoomStats,
+  CreateRoomDto,
+  UpdateRoomDto,
+  TaskPreset,
+  RoomTask,
+  CreateTaskDto,
+  UpdateTaskDto,
+  TaskStatus,
 };
